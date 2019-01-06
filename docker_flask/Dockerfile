@@ -1,5 +1,9 @@
 FROM python:3.7-alpine
 WORKDIR /usr/src/app
+
+#################################################################
+# This must be set to the name of application's python package! #
+#################################################################
 ARG FLASK_APP=swaptacular_debtor
 
 RUN apk add --no-cache \
@@ -15,6 +19,12 @@ RUN apk add --no-cache \
 # Configure "pudb" debugger not to show a welcome screen.
 RUN sed 's/seen_welcome = a/seen_welcome = e034/g' ~/.config/pudb/pudb.cfg -i
 
+# Configure "gunicorn".
+ENV GUNICORN_LOGLEVEL=warning
+ENV GUNICORN_WORKER_CLASS=sync
+ENV GUNICORN_WORKERS=2
+ENV GUNICORN_THREADS=1
+
 # Install the required packages, copy the app.
 ENV FLASK_APP=$FLASK_APP
 COPY Pipfile ./
@@ -26,6 +36,9 @@ COPY . .
 RUN python -m compileall .
 RUN python -c 'from wsgi import app'
 
+# Configure level "info" for app's logger.
+RUN sed "s/\$FLASK_APP/$FLASK_APP/g" docker_flask/logging.conf -i
+
 # Ensure flask is not bugged by an .env file.
 RUN rm -f .env
 
@@ -34,21 +47,3 @@ RUN ! which pybabel || pybabel compile -d $FLASK_APP/translations
 
 ENTRYPOINT ["/usr/src/app/docker_flask/entrypoint.sh"]
 CMD ["serve"]
-
-################################################################################
-
-# This sets the desired granularity of log outputs. Valid level names
-# are: debug, info, warning, error, critical
-ENV GUNICORN_LOGLEVEL=warning
-
-# This sets the type of workers to use with gunicorn.
-ENV GUNICORN_WORKER_CLASS=sync
-
-# This sets the number of worker processes for handling requests -- a
-# positive integer generally in the 2-4 * $NUM_CORES range.
-ENV GUNICORN_WORKERS=2
-
-# This sets the number of worker threads for handling requests. (Runs
-# each worker with the specified number of threads.) Only affects the
-# "gthread" and "sync" worker types.
-ENV GUNICORN_THREADS=1
