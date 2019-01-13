@@ -5,6 +5,7 @@ logger = logging.getLogger(__name__)
 
 from flask import Flask  # noqa: E402
 from . import extensions  # noqa: E402
+from . import models  # TODO: This is not the place to import modules!
 
 
 def create_app(config_object=None):
