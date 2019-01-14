@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "7bdb4a6649f06f3d46bc48bd529beaad7da8619500eff576b543dc21b7542054"
+            "sha256": "a9f64550b8cb86e9866871e98d0d2433180aba97ea1f9237bc91ad9ea9abdaa2"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -220,12 +220,25 @@
             ],
             "version": "==0.8.1"
         },
+        "pudb": {
+            "hashes": [
+                "sha256:8d8b974641b7a7a2a721af01c9dce5eac8e05a2ceebc2680725ba8eef1ca876e"
+            ],
+            "version": "==2018.1"
+        },
         "py": {
             "hashes": [
                 "sha256:bf92637198836372b520efcba9e020c330123be8ce527e535d185ed4b6f45694",
                 "sha256:e76826342cefe3c3d5f7e8ee4316b80d1dd8a300781612ddbc765c17ba25a6c6"
             ],
             "version": "==1.7.0"
+        },
+        "pygments": {
+            "hashes": [
+                "sha256:5ffada19f6203563680669ee7f53b64dabbeb100eb51b61996085e99c03b284a",
+                "sha256:e8218dd399a61674745138520d0d4cf2621d7e032439341bc3f647bff125818d"
+            ],
+            "version": "==2.3.1"
         },
         "pytest": {
             "hashes": [
@@ -234,6 +247,14 @@
             ],
             "index": "pypi",
             "version": "==4.1.1"
+        },
+        "pytest-pudb": {
+            "hashes": [
+                "sha256:0ea87316d39c82163d340c28a168e08a163b8d3f484e60a53c9fd5eefe432c63",
+                "sha256:21e96fc16f313a7bd75e1df1b151de8a721144318b0ae8350208d6554222005a"
+            ],
+            "index": "pypi",
+            "version": "==0.7.0"
         },
         "python-dotenv": {
             "hashes": [
@@ -249,6 +270,12 @@
                 "sha256:d16a0141ec1a18405cd4ce8b4613101da75da0e9a7aec5bdd4fa804d0e0eba73"
             ],
             "version": "==1.12.0"
+        },
+        "urwid": {
+            "hashes": [
+                "sha256:644d3e3900867161a2fc9287a9762753d66bd194754679adb26aede559bcccbc"
+            ],
+            "version": "==2.0.1"
         }
     }
 }
