@@ -7,7 +7,7 @@ def generate_get_random_sharding_key():
     assert generate_random_sharding_key(shard_id=666) >> 40 == 666
 
 
-@pytest.mark.sharding_key
+@pytest.mark.models
 def test_make_sharding_key(db_session):
     k = make_sharding_key()
     db_session.commit()
@@ -19,6 +19,6 @@ def test_make_sharding_key(db_session):
         make_sharding_key(seqnum=k, tries=2)
 
 
-@pytest.mark.sharding_key
+@pytest.mark.models
 def test_no_sharding_keys(db_session):
     assert len(ShardingKey.query.all()) == 0
