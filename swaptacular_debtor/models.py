@@ -12,8 +12,8 @@ def generate_random_sharding_key(shard_id, random_integer=None):
     return (shard_id << 40) + random_integer
 
 
-def make_sharding_key(shard_id=0, *, seqnum=None):
-    for _ in range(100):
+def make_sharding_key(shard_id=0, *, seqnum=None, tries=50):
+    for _ in range(tries):
         sharding_key = generate_random_sharding_key(shard_id, random_integer=seqnum)
         db.session.begin_nested()
         db.session.add(ShardingKey(sharding_key_value=sharding_key))

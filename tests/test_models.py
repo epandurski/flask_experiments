@@ -15,7 +15,7 @@ def test_make_sharding_key(db_session):
     assert all_keys[0].sharding_key_value == k
     db_session.expunge_all()
     with pytest.raises(RuntimeError):
-        make_sharding_key(seqnum=k)
+        make_sharding_key(seqnum=k, tries=2)
 
 
 def test_no_sharding_keys(db_session):
