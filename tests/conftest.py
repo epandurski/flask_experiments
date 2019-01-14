@@ -16,6 +16,8 @@ def _restart_savepoint(session, transaction):
 
 @pytest.fixture(scope='session')
 def app():
+    """Create Flask application object."""
+
     app = create_app()
     with app.app_context():
         flask_migrate.upgrade()
@@ -27,6 +29,14 @@ def app():
 
 @pytest.fixture(scope='function')
 def db_session(app):
+    """Create mocked Flask-SQLAlchmey session object.
+
+    The standard Flask-SQLAlchmey's session object is replaced with a
+    mock session that perform all database operations in a
+    transaction, which is rolled back at the end of the test.
+
+    """
+
     engines_by_table = db.get_binds()
     connections_by_engine = {engine: engine.connect() for engine in set(engines_by_table.values())}
     transactions = [connection.begin() for connection in connections_by_engine.values()]
