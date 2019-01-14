@@ -16,7 +16,7 @@ def _restart_savepoint(session, transaction):
 
 @pytest.fixture(scope='session')
 def app():
-    """Create Flask application object."""
+    """Create a Flask application object."""
 
     app = create_app()
     with app.app_context():
@@ -29,7 +29,7 @@ def app():
 
 @pytest.fixture(scope='function')
 def db_session(app):
-    """Create mocked Flask-SQLAlchmey session object.
+    """Create a mocked Flask-SQLAlchmey session object.
 
     The standard Flask-SQLAlchmey's session object is replaced with a
     mock session that perform all database operations in a
