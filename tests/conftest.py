@@ -19,7 +19,7 @@ def app():
     """Create a Flask application object."""
 
     app = create_app({
-        'SQLALCHEMY_ECHO': False,
+        'TESTING': True,
     })
     with app.app_context():
         flask_migrate.upgrade()
