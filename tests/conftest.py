@@ -18,7 +18,9 @@ def _restart_savepoint(session, transaction):
 def app():
     """Create a Flask application object."""
 
-    app = create_app()
+    app = create_app({
+        'SQLALCHEMY_ECHO': False,
+    })
     with app.app_context():
         flask_migrate.upgrade()
         forbidden = mock.Mock()
