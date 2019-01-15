@@ -51,7 +51,6 @@ def db_session(app):
     with mock.patch(DB_SESSION, new=session):
         yield session
     sqlalchemy.event.remove(session, 'after_transaction_end', _restart_savepoint)
-    session.rollback()
     session.remove()
     for transaction in transactions:
         transaction.rollback()
