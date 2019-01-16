@@ -23,7 +23,7 @@ def make_sharding_key(shard_id=0, *, seqnum=None, tries=50):
             db.session.rollback()
             continue
         return sharding_key
-    raise RuntimeError('Can not make unique sharding key.')
+    raise RuntimeError('Can not make a unique sharding key.')
 
 
 class ShardingKey(db.Model):
