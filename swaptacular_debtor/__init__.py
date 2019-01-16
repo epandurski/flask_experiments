@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 from flask import Flask  # noqa: E402
 from flask_env import MetaFlaskEnv  # noqa: E402
 from . import extensions  # noqa: E402
-from . import models  # TODO: This is not the place to import modules!
 
 
 class Configuration(metaclass=MetaFlaskEnv):
@@ -26,5 +25,5 @@ def create_app(config_dict={}):
     app.config.from_object(Configuration)
     app.config.from_mapping(config_dict)
     extensions.init_app(app)
-    # app.register_blueprint(bp, url_prefix='/bp')
+    from . import models  # TODO: Use 'app.register_blueprint(bp, url_prefix='/bp')' instead.
     return app
