@@ -37,7 +37,7 @@ def test_account_hold(db_session):
 
 def test_create_operator(db_session):
     d = Debtor(debtor_id=ShardingKey.generate())
-    o = Operator(debtor=d, user_id=1, alias='user 1')
+    o = Operator(debtor=d, branch_id=1, user_id=1, alias='user 1')
     db_session.add(o)
     db_session.commit()
     o_persisted = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
