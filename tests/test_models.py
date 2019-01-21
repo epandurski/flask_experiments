@@ -1,5 +1,6 @@
 import pytest
-from swaptacular_debtor.models import ShardingKey, Debtor, Account, PendingTransaction
+from sqlalchemy import inspect
+from swaptacular_debtor.models import ShardingKey, Debtor, Account, PendingTransaction, Operator
 
 
 def test_create_sharding_key():
@@ -32,3 +33,13 @@ def test_account_hold(db_session):
     db_session.add(pt)
     db_session.commit()
     assert PendingTransaction.query.get((d.debtor_id, 666, pt.pending_transaction_seqnum)).locked_amount == 0
+
+
+def test_create_operator(db_session):
+    d = Debtor(debtor_id=ShardingKey.generate())
+    o = Operator(debtor=d, user_id=1, alias='user 1')
+    db_session.add(o)
+    db_session.commit()
+    o_persisted = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
+    assert o_persisted.alias == 'user 1'
+    assert o_persisted.profile == {}
