@@ -29,7 +29,7 @@ def test_no_sharding_keys(db_session):
 def test_account_hold(db_session):
     d = Debtor(debtor_id=ShardingKey.generate())
     a = Account(debtor=d, creditor_id=666, balance=10)
-    pt = PendingTransaction(account=a)
+    pt = PendingTransaction(debtor=d, account=a)
     db_session.add(pt)
     db_session.commit()
     assert PendingTransaction.query.get((d.debtor_id, 666, pt.pending_transaction_seqnum)).locked_amount == 0

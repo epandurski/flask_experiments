@@ -58,7 +58,10 @@ class Account(db.Model):
         comment="The total owed amount minus all pending transaction locks"
     )
 
-    debtor = db.relationship('Debtor')
+    debtor = db.relationship(
+        'Debtor',
+        backref=db.backref('accounts')
+    )
 
 
 class PendingTransaction(db.Model):
@@ -74,8 +77,15 @@ class PendingTransaction(db.Model):
         ),
     )
 
+    debtor = db.relationship(
+        Debtor,
+        foreign_keys=[debtor_id],
+        primaryjoin=Debtor.debtor_id == debtor_id,
+        backref=db.backref('pending_transactions'),
+    )
     account = db.relationship(
         'Account',
+        foreign_keys=[creditor_id],
         backref=db.backref('pending_transactions', cascade="all, delete-orphan", passive_deletes=True),
     )
 
@@ -93,8 +103,15 @@ class Transaction(db.Model):
         ),
     )
 
+    debtor = db.relationship(
+        Debtor,
+        foreign_keys=[debtor_id],
+        primaryjoin=Debtor.debtor_id == debtor_id,
+        backref=db.backref('transactions'),
+    )
     account = db.relationship(
         'Account',
+        foreign_keys=[creditor_id],
         backref=db.backref('transactions', cascade="all", passive_deletes=True),
     )
 
@@ -110,4 +127,7 @@ class Operator(db.Model):
     can_audit = db.Column(db.Boolean, nullable=False, default=False)
     revision = db.Column(db.BigInteger, nullable=False, default=0)
 
-    debtor = db.relationship('Debtor')
+    debtor = db.relationship(
+        'Debtor',
+        backref=db.backref('operators'),
+    )
