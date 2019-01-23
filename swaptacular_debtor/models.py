@@ -55,7 +55,7 @@ class Account(db.Model):
         db.BigInteger,
         nullable=False,
         default=0,
-        comment="The total owed amount minus all pending transaction locks"
+        comment="The total owed amount minus all pending transaction locks",
     )
 
     debtor = db.relationship(
