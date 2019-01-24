@@ -5,6 +5,47 @@ from sqlalchemy.dialects import postgresql as pg
 from .extensions import db
 
 
+def build_foreign_key_join(table_args, foreign_key_columns):
+    """Return a function that builds a foreign key join expression.
+
+    :param table_args: The `__table_args__` model class attribute.
+
+    :param foreign_key_columns: A sequence of columns (attributes
+        defined in the model class), forming the foreign key.
+
+    :return: The returned value (a function) is intended to be passed
+        as `primaryjoin` parameter to the `relationship` function.
+
+    """
+
+    from sqlalchemy.sql.schema import ForeignKeyConstraint
+    from sqlalchemy.sql.expression import and_
+    from sqlalchemy.orm import foreign
+
+    def match_fk(fk_constraint):
+        columns = fk_constraint.columns.values()
+        for c in foreign_key_columns:
+            if c not in columns:
+                return False
+        return True
+
+    def annotate_if_forign(column):
+        return foreign(column) if column in foreign_key_columns else column
+
+    def build_primaryjoin_expression():
+        matching_fk_constraints = [
+            arg for arg in table_args if isinstance(arg, ForeignKeyConstraint) and match_fk(arg)
+        ]
+        assert len(matching_fk_constraints) == 1, 'Can not unambiguously match a forign key constraint.'
+        fk_constraint = matching_fk_constraints[0]
+        columns = fk_constraint.columns.values()
+        referred_columns = [element.column for element in fk_constraint.elements]
+        column_pairs = zip(columns, referred_columns)
+        return and_(*[annotate_if_forign(x) == y for x, y in column_pairs])
+
+    return build_primaryjoin_expression
+
+
 class ShardingKey(db.Model):
     sharding_key_value = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
 
@@ -79,13 +120,12 @@ class PendingTransaction(db.Model):
 
     debtor = db.relationship(
         Debtor,
-        foreign_keys=[debtor_id],
-        primaryjoin=Debtor.debtor_id == debtor_id,
+        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
         backref=db.backref('pending_transactions'),
     )
     account = db.relationship(
         'Account',
-        foreign_keys=[creditor_id],
+        primaryjoin=build_foreign_key_join(__table_args__, [creditor_id]),
         backref=db.backref('pending_transactions', cascade="all, delete-orphan", passive_deletes=True),
     )
 
@@ -105,13 +145,12 @@ class Transaction(db.Model):
 
     debtor = db.relationship(
         Debtor,
-        foreign_keys=[debtor_id],
-        primaryjoin=Debtor.debtor_id == debtor_id,
+        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
         backref=db.backref('transactions'),
     )
     account = db.relationship(
         'Account',
-        foreign_keys=[creditor_id],
+        primaryjoin=build_foreign_key_join(__table_args__, [creditor_id]),
         backref=db.backref('transactions', cascade="all", passive_deletes=True),
     )
 
