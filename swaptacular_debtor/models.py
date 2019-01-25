@@ -140,9 +140,9 @@ class OperatorTransaction(db.Model):
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     amount = db.Column(db.BigInteger, nullable=False)
-    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     operator_branch_id = db.Column(db.Integer, nullable=False)
     operator_user_id = db.Column(db.BigInteger, nullable=False)
+    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     details = db.Column(pg.JSONB, nullable=False, default={})
     __table_args__ = (
         db.ForeignKeyConstraint(
