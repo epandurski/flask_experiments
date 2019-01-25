@@ -135,6 +135,23 @@ class PendingTransaction(db.Model):
     )
 
 
+class Operator(db.Model):
+    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
+    branch_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.BigInteger, primary_key=True)
+    alias = db.Column(db.String(100), nullable=False)
+    profile = db.Column(pg.JSONB, nullable=False, default={})
+    can_withdraw = db.Column(db.Boolean, nullable=False, default=False)
+    can_deposit = db.Column(db.Boolean, nullable=False, default=False)
+    can_audit = db.Column(db.Boolean, nullable=False, default=False)
+    revision = db.Column(db.BigInteger, nullable=False, default=0)
+
+    debtor = db.relationship(
+        'Debtor',
+        backref=db.backref('operators'),
+    )
+
+
 class OperatorTransaction(db.Model):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
@@ -172,21 +189,4 @@ class OperatorTransaction(db.Model):
         'Operator',
         primaryjoin=build_foreign_key_join(__table_args__, [operator_branch_id, operator_user_id]),
         backref=db.backref('transactions', cascade='all, delete-orphan', passive_deletes=True),
-    )
-
-
-class Operator(db.Model):
-    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
-    branch_id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.BigInteger, primary_key=True)
-    alias = db.Column(db.String(100), nullable=False)
-    profile = db.Column(pg.JSONB, nullable=False, default={})
-    can_withdraw = db.Column(db.Boolean, nullable=False, default=False)
-    can_deposit = db.Column(db.Boolean, nullable=False, default=False)
-    can_audit = db.Column(db.Boolean, nullable=False, default=False)
-    revision = db.Column(db.BigInteger, nullable=False, default=0)
-
-    debtor = db.relationship(
-        'Debtor',
-        backref=db.backref('operators'),
     )
