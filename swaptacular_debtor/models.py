@@ -135,6 +135,19 @@ class PendingTransaction(db.Model):
     )
 
 
+class Branch(db.Model):
+    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
+    branch_id = db.Column(db.Integer, primary_key=True)
+    info = db.Column(pg.JSONB, nullable=False, default={})
+    revision = db.Column(db.BigInteger, nullable=False, default=0)
+
+    debtor = db.relationship(
+        Debtor,
+        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
+        backref=db.backref('branches'),
+    )
+
+
 class Operator(db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     branch_id = db.Column(db.Integer, primary_key=True)
@@ -145,10 +158,22 @@ class Operator(db.Model):
     can_deposit = db.Column(db.Boolean, nullable=False, default=False)
     can_audit = db.Column(db.Boolean, nullable=False, default=False)
     revision = db.Column(db.BigInteger, nullable=False, default=0)
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ['debtor_id', 'branch_id'],
+            ['branch.debtor_id', 'branch.branch_id'],
+            ondelete='CASCADE',
+        ),
+    )
 
     debtor = db.relationship(
         'Debtor',
         backref=db.backref('operators'),
+    )
+    branch = db.relationship(
+        'Branch',
+        primaryjoin=build_foreign_key_join(__table_args__, [branch_id]),
+        backref=db.backref('operators', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
