@@ -6,7 +6,7 @@ from sqlalchemy.dialects import postgresql as pg
 from .extensions import db
 
 
-def build_foreign_key_join(table_args, foreign_key_columns):
+def build_foreign_key_join(table_args, *foreign_key_columns):
     """Return a function that builds a foreign key join expression.
 
     :param table_args: The `__table_args__` model class attribute.
@@ -134,7 +134,7 @@ class PendingTransaction(db.Model):
     )
     account = db.relationship(
         'Account',
-        primaryjoin=build_foreign_key_join(__table_args__, [creditor_id]),
+        primaryjoin=build_foreign_key_join(__table_args__, creditor_id),
         backref=db.backref('pending_transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
 
@@ -176,7 +176,7 @@ class Operator(db.Model):
     )
     branch = db.relationship(
         'Branch',
-        primaryjoin=build_foreign_key_join(__table_args__, [branch_id]),
+        primaryjoin=build_foreign_key_join(__table_args__, branch_id),
         backref=db.backref('operators', cascade='all, delete-orphan', passive_deletes=True),
     )
 
@@ -211,11 +211,11 @@ class OperatorTransaction(db.Model):
     )
     account = db.relationship(
         'Account',
-        primaryjoin=build_foreign_key_join(__table_args__, [creditor_id]),
+        primaryjoin=build_foreign_key_join(__table_args__, creditor_id),
         backref=db.backref('operator_transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
     operator = db.relationship(
         'Operator',
-        primaryjoin=build_foreign_key_join(__table_args__, [operator_branch_id, operator_user_id]),
+        primaryjoin=build_foreign_key_join(__table_args__, operator_branch_id, operator_user_id),
         backref=db.backref('transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
