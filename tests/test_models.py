@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy import inspect
-from swaptacular_debtor.models import ShardingKey, Debtor, Account, PendingTransaction, Operator
+from swaptacular_debtor.models import ShardingKey, Debtor, Account, PendingTransaction, Operator, OperatorTransaction
 
 
 def test_create_sharding_key():
@@ -43,3 +43,25 @@ def test_create_operator(db_session):
     o_persisted = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
     assert o_persisted.alias == 'user 1'
     assert o_persisted.profile == {}
+
+
+def test_create_transaction(db_session):
+    d = Debtor(debtor_id=ShardingKey.generate())
+    a = Account(debtor=d, creditor_id=666, balance=10)
+    o = Operator(debtor=d, branch_id=1, user_id=1, alias='user 1')
+    t1 = OperatorTransaction(debtor=d, account=a, amount=5, operator=o)
+    t2 = OperatorTransaction(debtor=d, account=a, amount=50, operator=o)
+    db_session.add(t1)
+    db_session.add(t2)
+    db_session.commit()
+    o_persisted = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
+    assert len(o_persisted.transactions) == 2
+    t_persisted = o_persisted.transactions[0]
+    o_persisted.transactions.remove(t_persisted)
+    assert t_persisted.operator is None
+    assert t_persisted.operator_user_id is not None
+    db_session.flush()
+    assert inspect(t_persisted).deleted
+    db_session.commit()
+    o_persisted = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
+    assert len(o_persisted.transactions) == 1

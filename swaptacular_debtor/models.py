@@ -1,5 +1,6 @@
 import os
 import struct
+import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects import postgresql as pg
 from .extensions import db
@@ -44,6 +45,10 @@ def build_foreign_key_join(table_args, foreign_key_columns):
         return and_(*[annotate_if_forign(x) == y for x, y in column_pairs])
 
     return build_primaryjoin_expression
+
+
+def get_now_utc():
+    return datetime.datetime.now(tz=datetime.timezone.utc)
 
 
 class ShardingKey(db.Model):
@@ -126,32 +131,47 @@ class PendingTransaction(db.Model):
     account = db.relationship(
         'Account',
         primaryjoin=build_foreign_key_join(__table_args__, [creditor_id]),
-        backref=db.backref('pending_transactions', cascade="all, delete-orphan", passive_deletes=True),
+        backref=db.backref('pending_transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
-class Transaction(db.Model):
+class OperatorTransaction(db.Model):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     amount = db.Column(db.BigInteger, nullable=False)
+    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
+    operator_branch_id = db.Column(db.Integer, nullable=False)
+    operator_user_id = db.Column(db.BigInteger, nullable=False)
+    details = db.Column(pg.JSONB, nullable=False, default={})
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'creditor_id'],
             ['account.debtor_id', 'account.creditor_id'],
             ondelete='CASCADE',
         ),
+        db.ForeignKeyConstraint(
+            ['debtor_id', 'operator_branch_id', 'operator_user_id'],
+            ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
+            ondelete='CASCADE',
+        ),
+        db.Index('idx_operator_transaction_closing_ts', debtor_id, operator_branch_id, closing_ts)
     )
 
     debtor = db.relationship(
         Debtor,
         primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('transactions'),
+        backref=db.backref('operator_transactions'),
     )
     account = db.relationship(
         'Account',
         primaryjoin=build_foreign_key_join(__table_args__, [creditor_id]),
-        backref=db.backref('transactions', cascade="all", passive_deletes=True),
+        backref=db.backref('operator_transactions', cascade='all, delete-orphan', passive_deletes=True),
+    )
+    operator = db.relationship(
+        'Operator',
+        primaryjoin=build_foreign_key_join(__table_args__, [operator_branch_id, operator_user_id]),
+        backref=db.backref('transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
