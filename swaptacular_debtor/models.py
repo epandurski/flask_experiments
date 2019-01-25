@@ -12,14 +12,14 @@ def build_foreign_key_join(table_args, foreign_key_columns):
     :param table_args: The `__table_args__` model class attribute.
 
     :param foreign_key_columns: A sequence of columns (attributes
-        defined in the model class), forming the foreign key.
+        defined in the model class).
 
     :return: The returned value (a function) is intended to be passed
         as `primaryjoin` parameter to the `relationship` function. As
         a result, the primary join condition will include all foreign
         key columns, but only the subset defined by
-        `foreign_key_columns` will be updated when assigning to the
-        relationship attribute.
+        `foreign_key_columns` will be updated when assigning to
+        relationship's attribute.
 
     """
 
