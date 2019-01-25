@@ -15,7 +15,11 @@ def build_foreign_key_join(table_args, foreign_key_columns):
         defined in the model class), forming the foreign key.
 
     :return: The returned value (a function) is intended to be passed
-        as `primaryjoin` parameter to the `relationship` function.
+        as `primaryjoin` parameter to the `relationship` function. As
+        a result, the primary join condition will include all foreign
+        key columns, but only the subset defined by
+        `foreign_key_columns` will be updated when assigning to the
+        relationship attribute.
 
     """
 
