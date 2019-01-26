@@ -114,36 +114,10 @@ class Account(db.Model):
     )
 
 
-class PendingTransaction(db.Model):
-    debtor_id = db.Column(db.BigInteger, primary_key=True)
-    creditor_id = db.Column(db.BigInteger, primary_key=True)
-    pending_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    locked_amount = db.Column(db.BigInteger, nullable=False, default=0)
-    __table_args__ = (
-        db.ForeignKeyConstraint(
-            ['debtor_id', 'creditor_id'],
-            ['account.debtor_id', 'account.creditor_id'],
-            ondelete='CASCADE',
-        ),
-    )
-
-    debtor = db.relationship(
-        Debtor,
-        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('pending_transactions'),
-    )
-    account = db.relationship(
-        'Account',
-        primaryjoin=build_foreign_key_join(__table_args__, creditor_id),
-        backref=db.backref('pending_transactions', cascade='all, delete-orphan', passive_deletes=True),
-    )
-
-
 class Branch(db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     branch_id = db.Column(db.Integer, primary_key=True)
     info = db.Column(pg.JSONB, nullable=False, default={})
-    revision = db.Column(db.BigInteger, nullable=False, default=0)
 
     debtor = db.relationship(
         Debtor,
@@ -153,7 +127,7 @@ class Branch(db.Model):
 
 
 class Operator(db.Model):
-    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
+    debtor_id = db.Column(db.BigInteger, primary_key=True)
     branch_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.BigInteger, primary_key=True)
     alias = db.Column(db.String(100), nullable=False)
@@ -161,7 +135,6 @@ class Operator(db.Model):
     can_withdraw = db.Column(db.Boolean, nullable=False, default=False)
     can_deposit = db.Column(db.Boolean, nullable=False, default=False)
     can_audit = db.Column(db.Boolean, nullable=False, default=False)
-    revision = db.Column(db.BigInteger, nullable=False, default=0)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'branch_id'],
@@ -171,7 +144,8 @@ class Operator(db.Model):
     )
 
     debtor = db.relationship(
-        'Debtor',
+        Debtor,
+        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
         backref=db.backref('operators'),
     )
     branch = db.relationship(
@@ -192,14 +166,13 @@ class OperatorTransaction(db.Model):
     )
     operator_branch_id = db.Column(db.Integer, nullable=False)
     operator_user_id = db.Column(db.BigInteger, nullable=False)
-    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
+    opening_ts = db.Column(db.TIMESTAMP(timezone=True), default=get_now_utc)
+    closing_ts = db.Column(
+        db.TIMESTAMP(timezone=True),
+        comment='NULL indicates that the payment has not arrived yet.',
+    )
     details = db.Column(pg.JSONB, nullable=False, default={})
     __table_args__ = (
-        db.ForeignKeyConstraint(
-            ['debtor_id', 'creditor_id'],
-            ['account.debtor_id', 'account.creditor_id'],
-            ondelete='CASCADE',
-        ),
         db.ForeignKeyConstraint(
             ['debtor_id', 'operator_branch_id', 'operator_user_id'],
             ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
@@ -212,11 +185,6 @@ class OperatorTransaction(db.Model):
         Debtor,
         primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
         backref=db.backref('operator_transactions'),
-    )
-    account = db.relationship(
-        'Account',
-        primaryjoin=build_foreign_key_join(__table_args__, creditor_id),
-        backref=db.backref('operator_transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
     operator = db.relationship(
         'Operator',
