@@ -26,35 +26,35 @@ def test_no_sharding_keys(db_session):
     assert len(ShardingKey.query.all()) == 0
 
 
-def test_create_operator(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate())
-    b = Branch(debtor=d, branch_id=2)
-    o = Operator(debtor=d, branch=b, user_id=1, alias='user 1')
-    db_session.add(o)
-    db_session.commit()
-    _o = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
-    assert _o.alias == 'user 1'
-    assert _o.profile == {}
+@pytest.mark.models
+def test_create_transactions(db_session):
+    d1 = Debtor(debtor_id=ShardingKey.generate())
+    b1 = Branch(debtor=d1, branch_id=1)
+    o1 = Operator(debtor=d1, branch=b1, user_id=1, alias='user 1')
+    db_session.add(Operator(debtor=d1, branch=b1, user_id=2, alias='user 2'))
+    db_session.add(OperatorTransaction(debtor=d1, creditor_id=666, amount=5, operator=o1))
+    db_session.add(OperatorTransaction(debtor=d1, creditor_id=777, amount=50, operator=o1))
 
+    d2 = Debtor(debtor_id=ShardingKey.generate())
+    b2 = Branch(debtor=d2, branch_id=1)
+    o2 = Operator(debtor=d2, branch=b2, user_id=1, alias='user 1')
+    db_session.add(Operator(debtor=d2, branch=b2, user_id=3, alias='user 3'))
+    db_session.add(OperatorTransaction(debtor=d2, creditor_id=888, amount=-10, operator=o2))
 
-def test_create_transaction(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate())
-    b = Branch(debtor=d, branch_id=2)
-    o = Operator(debtor=d, branch=b, user_id=1, alias='user 1')
-    t1 = OperatorTransaction(debtor=d, creditor_id=666, amount=5, operator=o)
-    t2 = OperatorTransaction(debtor=d, creditor_id=666, amount=50, operator=o)
-    db_session.add(t1)
-    db_session.add(t2)
     db_session.commit()
-    _o = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
-    assert len(_o.transactions) == 2
-    _t = _o.transactions[0]
-    assert _t.amount in [5, 50]
-    _o.transactions.remove(_t)
-    assert _t.operator is None
-    assert _t.operator_user_id is not None
+    assert Operator.query.filter_by(debtor=d2).count() == 2
+    operators = Operator.query.filter_by(debtor=d1).order_by('user_id').all()
+    assert len(operators) == 2
+    assert len(operators[0].transactions) == 2
+    assert len(operators[1].transactions) == 0
+    operator = operators[0]
+    assert operator.alias == 'user 1'
+    assert operator.profile == {}
+    t = operator.transactions[0]
+    assert t.amount in [5, 50]
+    operator.transactions.remove(t)
+    assert t.operator is None
     db_session.flush()
-    assert inspect(_t).deleted
+    assert inspect(t).deleted
     db_session.commit()
-    __o = Operator.query.get(inspect(Operator).primary_key_from_instance(o))
-    assert len(__o.transactions) == 1
+    assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().transactions) == 1
