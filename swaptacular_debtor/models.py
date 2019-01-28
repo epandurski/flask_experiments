@@ -99,18 +99,52 @@ class Account(db.Model):
         db.BigInteger,
         nullable=False,
         default=0,
-        comment="The total owed amount",
+        comment='The total owed amount',
     )
     avl_balance = db.Column(
         db.BigInteger,
         nullable=False,
         default=0,
-        comment="The total owed amount minus all pending transaction locks",
+        comment='The total owed amount minus all pending transaction locks',
     )
 
     debtor = db.relationship(
         'Debtor',
         backref=db.backref('accounts')
+    )
+
+
+class PreparedTransaction(db.Model):
+    debtor_id = db.Column(db.BigInteger, primary_key=True)
+    creditor_id = db.Column(db.BigInteger, primary_key=True)
+    prepared_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    transaction_type = db.Column(
+        db.SmallInteger,
+        nullable=False,
+        comment='1 -- operator transaction',
+    )
+    amount = db.Column(
+        db.BigInteger,
+        nullable=False,
+        comment='A positive number indicates a deposit, a negative number -- a withdrawal.',
+    )
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ['debtor_id', 'creditor_id'],
+            ['account.debtor_id', 'account.creditor_id'],
+            ondelete='CASCADE',
+        ),
+    )
+
+    debtor = db.relationship(
+        Debtor,
+        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
+        backref=db.backref('prepared_transactions'),
+    )
+    account = db.relationship(
+        'Account',
+        primaryjoin=build_foreign_key_join(__table_args__, creditor_id),
+        backref=db.backref('prepared_transactions', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
@@ -155,15 +189,41 @@ class Operator(db.Model):
     )
 
 
+class OperatorTransactionRequest(db.Model):
+    debtor_id = db.Column(db.BigInteger, primary_key=True)
+    creditor_id = db.Column(db.BigInteger, primary_key=True)
+    operator_transaction_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    amount = db.Column(db.BigInteger, nullable=False)
+    operator_branch_id = db.Column(db.Integer, nullable=False)
+    operator_user_id = db.Column(db.BigInteger, nullable=False)
+    opening_ts = db.Column(db.TIMESTAMP(timezone=True), default=get_now_utc)
+    details = db.Column(pg.JSONB, nullable=False, default={})
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            ['debtor_id', 'operator_branch_id', 'operator_user_id'],
+            ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
+            ondelete='CASCADE',
+        ),
+        db.Index('idx_operator_transaction_request_opening_ts', debtor_id, operator_branch_id, opening_ts)
+    )
+
+    debtor = db.relationship(
+        Debtor,
+        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
+        backref=db.backref('operator_transaction_requests'),
+    )
+    operator = db.relationship(
+        'Operator',
+        primaryjoin=build_foreign_key_join(__table_args__, operator_branch_id, operator_user_id),
+        backref=db.backref('transaction_requests', cascade='all, delete-orphan', passive_deletes=True),
+    )
+
+
 class OperatorTransaction(db.Model):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
-    transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    amount = db.Column(
-        db.BigInteger,
-        nullable=False,
-        comment="A positive number indicates a deposit, a negative number -- a withdrawal.",
-    )
+    operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    amount = db.Column(db.BigInteger, nullable=False)
     operator_branch_id = db.Column(db.Integer, nullable=False)
     operator_user_id = db.Column(db.BigInteger, nullable=False)
     opening_ts = db.Column(db.TIMESTAMP(timezone=True), default=get_now_utc)
