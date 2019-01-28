@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 4a75b49045a4
+Revision ID: c3754f353d04
 Revises: 
-Create Date: 2019-01-28 17:00:50.837481
+Create Date: 2019-01-28 17:51:57.937439
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '4a75b49045a4'
+revision = 'c3754f353d04'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -66,13 +66,13 @@ def upgrade():
     op.create_table('operator_transaction',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('operator_transaction_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('amount', sa.BigInteger(), nullable=False),
     sa.Column('operator_branch_id', sa.Integer(), nullable=False),
     sa.Column('operator_user_id', sa.BigInteger(), nullable=False),
-    sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=True),
-    sa.Column('closing_ts', sa.TIMESTAMP(timezone=True), nullable=True, comment='NULL indicates that the payment has not arrived yet.'),
     sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
+    sa.Column('closing_ts', sa.TIMESTAMP(timezone=True), nullable=False),
+    sa.Column('operator_transaction_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_seqnum')
     )
@@ -80,12 +80,12 @@ def upgrade():
     op.create_table('operator_transaction_request',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('amount', sa.BigInteger(), nullable=False),
     sa.Column('operator_branch_id', sa.Integer(), nullable=False),
     sa.Column('operator_user_id', sa.BigInteger(), nullable=False),
-    sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=True),
     sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
+    sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_request_seqnum')
     )

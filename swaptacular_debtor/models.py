@@ -2,6 +2,7 @@ import os
 import struct
 import datetime
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from .extensions import db
 
@@ -189,65 +190,58 @@ class Operator(db.Model):
     )
 
 
-class OperatorTransactionRequest(db.Model):
+class OperatorTransactionMixin:
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
+    amount = db.Column(db.BigInteger, nullable=False)
+    operator_branch_id = db.Column(db.Integer, nullable=False)
+    operator_user_id = db.Column(db.BigInteger, nullable=False)
+    details = db.Column(pg.JSONB, nullable=False, default={})
+    opening_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            db.ForeignKeyConstraint(
+                ['debtor_id', 'operator_branch_id', 'operator_user_id'],
+                ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
+                ondelete='CASCADE',
+            ),
+        )
+
+    @declared_attr
+    def debtor(cls):
+        return db.relationship(
+            Debtor,
+            primaryjoin=Debtor.debtor_id == db.foreign(cls.debtor_id),
+            backref=db.backref(cls.__tablename__ + 's'),
+        )
+
+    @declared_attr
+    def operator(cls):
+        return db.relationship(
+            'Operator',
+            primaryjoin=build_foreign_key_join(cls.__table_args__, cls.operator_branch_id, cls.operator_user_id),
+            backref=db.backref(cls.__tablename__ + 's', cascade='all, delete-orphan', passive_deletes=True),
+        )
+
+
+class OperatorTransactionRequest(OperatorTransactionMixin, db.Model):
     operator_transaction_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    amount = db.Column(db.BigInteger, nullable=False)
-    operator_branch_id = db.Column(db.Integer, nullable=False)
-    operator_user_id = db.Column(db.BigInteger, nullable=False)
-    opening_ts = db.Column(db.TIMESTAMP(timezone=True), default=get_now_utc)
-    details = db.Column(pg.JSONB, nullable=False, default={})
-    __table_args__ = (
-        db.ForeignKeyConstraint(
-            ['debtor_id', 'operator_branch_id', 'operator_user_id'],
-            ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
-            ondelete='CASCADE',
-        ),
-        db.Index('idx_operator_transaction_request_opening_ts', debtor_id, operator_branch_id, opening_ts)
-    )
 
-    debtor = db.relationship(
-        Debtor,
-        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('operator_transaction_requests'),
-    )
-    operator = db.relationship(
-        'Operator',
-        primaryjoin=build_foreign_key_join(__table_args__, operator_branch_id, operator_user_id),
-        backref=db.backref('transaction_requests', cascade='all, delete-orphan', passive_deletes=True),
-    )
+    @declared_attr
+    def __table_args__(cls):
+        return super().__table_args__ + (
+            db.Index('idx_operator_transaction_request_opening_ts', 'debtor_id', 'operator_branch_id', 'opening_ts'),
+        )
 
 
-class OperatorTransaction(db.Model):
-    debtor_id = db.Column(db.BigInteger, primary_key=True)
-    creditor_id = db.Column(db.BigInteger, primary_key=True)
+class OperatorTransaction(OperatorTransactionMixin, db.Model):
+    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    amount = db.Column(db.BigInteger, nullable=False)
-    operator_branch_id = db.Column(db.Integer, nullable=False)
-    operator_user_id = db.Column(db.BigInteger, nullable=False)
-    opening_ts = db.Column(db.TIMESTAMP(timezone=True), default=get_now_utc)
-    closing_ts = db.Column(
-        db.TIMESTAMP(timezone=True),
-        comment='NULL indicates that the payment has not arrived yet.',
-    )
-    details = db.Column(pg.JSONB, nullable=False, default={})
-    __table_args__ = (
-        db.ForeignKeyConstraint(
-            ['debtor_id', 'operator_branch_id', 'operator_user_id'],
-            ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
-            ondelete='CASCADE',
-        ),
-        db.Index('idx_operator_transaction_closing_ts', debtor_id, operator_branch_id, closing_ts)
-    )
 
-    debtor = db.relationship(
-        Debtor,
-        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('operator_transactions'),
-    )
-    operator = db.relationship(
-        'Operator',
-        primaryjoin=build_foreign_key_join(__table_args__, operator_branch_id, operator_user_id),
-        backref=db.backref('transactions', cascade='all, delete-orphan', passive_deletes=True),
-    )
+    @declared_attr
+    def __table_args__(cls):
+        return super().__table_args__ + (
+            db.Index('idx_operator_transaction_closing_ts', 'debtor_id', 'operator_branch_id', 'closing_ts'),
+        )

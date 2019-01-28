@@ -45,16 +45,16 @@ def test_create_transactions(db_session):
     assert Operator.query.filter_by(debtor=d2).count() == 2
     operators = Operator.query.filter_by(debtor=d1).order_by('user_id').all()
     assert len(operators) == 2
-    assert len(operators[0].transactions) == 2
-    assert len(operators[1].transactions) == 0
+    assert len(operators[0].operator_transactions) == 2
+    assert len(operators[1].operator_transactions) == 0
     operator = operators[0]
     assert operator.alias == 'user 1'
     assert operator.profile == {}
-    t = operator.transactions[0]
+    t = operator.operator_transactions[0]
     assert t.amount in [5, 50]
-    operator.transactions.remove(t)
+    operator.operator_transactions.remove(t)
     assert t.operator is None
     db_session.flush()
     assert inspect(t).deleted
     db_session.commit()
-    assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().transactions) == 1
+    assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().operator_transactions) == 1
