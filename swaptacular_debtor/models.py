@@ -7,51 +7,6 @@ from sqlalchemy.dialects import postgresql as pg
 from .extensions import db
 
 
-def build_foreign_key_join(table_args, *foreign_key_columns):
-    """Return a function that builds a foreign key join expression.
-
-    :param table_args: The `__table_args__` model class attribute.
-
-    :param foreign_key_columns: A sequence of columns (attributes
-        defined in the model class).
-
-    :return: The returned value (a function) is intended to be passed
-        as `primaryjoin` parameter to the `relationship` function. As
-        a result, the primary join condition will include all foreign
-        key columns, but only the subset defined by
-        `foreign_key_columns` will be updated when assigning to
-        relationship's attribute.
-
-    """
-
-    from sqlalchemy.sql.schema import ForeignKeyConstraint
-    from sqlalchemy.sql.expression import and_
-    from sqlalchemy.orm import foreign
-
-    def match_fk(fk_constraint):
-        columns = fk_constraint.columns.values()
-        for c in foreign_key_columns:
-            if c not in columns:
-                return False
-        return True
-
-    def annotate_if_forign(column):
-        return foreign(column) if column in foreign_key_columns else column
-
-    def build_primaryjoin_expression():
-        matching_fk_constraints = [
-            arg for arg in table_args if isinstance(arg, ForeignKeyConstraint) and match_fk(arg)
-        ]
-        assert len(matching_fk_constraints) == 1, 'Can not unambiguously match a forign key constraint.'
-        fk_constraint = matching_fk_constraints[0]
-        columns = fk_constraint.columns.values()
-        referred_columns = [element.column for element in fk_constraint.elements]
-        column_pairs = zip(columns, referred_columns)
-        return and_(*[annotate_if_forign(x) == y for x, y in column_pairs])
-
-    return build_primaryjoin_expression
-
-
 def get_now_utc():
     return datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -93,7 +48,19 @@ class Debtor(db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.sharding_key_value'), primary_key=True)
 
 
-class Account(db.Model):
+class DebtorModel(db.Model):
+    __abstract__ = True
+
+    @declared_attr
+    def debtor(cls):
+        return db.relationship(
+            Debtor,
+            primaryjoin=Debtor.debtor_id == db.foreign(cls.debtor_id),
+            backref=db.backref(cls.__tablename__ + '_list'),
+        )
+
+
+class Account(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     balance = db.Column(
@@ -109,13 +76,8 @@ class Account(db.Model):
         comment='The total owed amount minus all pending transaction locks',
     )
 
-    debtor = db.relationship(
-        'Debtor',
-        backref=db.backref('accounts')
-    )
 
-
-class PreparedTransaction(db.Model):
+class PreparedTransaction(DebtorModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
@@ -137,31 +99,19 @@ class PreparedTransaction(db.Model):
         ),
     )
 
-    debtor = db.relationship(
-        Debtor,
-        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('prepared_transactions'),
-    )
     account = db.relationship(
         'Account',
-        primaryjoin=build_foreign_key_join(__table_args__, creditor_id),
-        backref=db.backref('prepared_transactions', cascade='all, delete-orphan', passive_deletes=True),
+        backref=db.backref('prepared_transaction_list', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
-class Branch(db.Model):
+class Branch(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     branch_id = db.Column(db.Integer, primary_key=True)
     info = db.Column(pg.JSONB, nullable=False, default={})
 
-    debtor = db.relationship(
-        Debtor,
-        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('branches'),
-    )
 
-
-class Operator(db.Model):
+class Operator(DebtorModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     branch_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.BigInteger, primary_key=True)
@@ -178,15 +128,9 @@ class Operator(db.Model):
         ),
     )
 
-    debtor = db.relationship(
-        Debtor,
-        primaryjoin=Debtor.debtor_id == db.foreign(debtor_id),
-        backref=db.backref('operators'),
-    )
     branch = db.relationship(
         'Branch',
-        primaryjoin=build_foreign_key_join(__table_args__, branch_id),
-        backref=db.backref('operators', cascade='all, delete-orphan', passive_deletes=True),
+        backref=db.backref('operator_list', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
@@ -210,23 +154,14 @@ class OperatorTransactionMixin:
         )
 
     @declared_attr
-    def debtor(cls):
-        return db.relationship(
-            Debtor,
-            primaryjoin=Debtor.debtor_id == db.foreign(cls.debtor_id),
-            backref=db.backref(cls.__tablename__ + 's'),
-        )
-
-    @declared_attr
     def operator(cls):
         return db.relationship(
             'Operator',
-            primaryjoin=build_foreign_key_join(cls.__table_args__, cls.operator_branch_id, cls.operator_user_id),
-            backref=db.backref(cls.__tablename__ + 's', cascade='all, delete-orphan', passive_deletes=True),
+            backref=db.backref(cls.__tablename__ + '_list', cascade='all, delete-orphan', passive_deletes=True),
         )
 
 
-class OperatorTransactionRequest(OperatorTransactionMixin, db.Model):
+class OperatorTransactionRequest(OperatorTransactionMixin, DebtorModel):
     operator_transaction_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr
@@ -235,8 +170,16 @@ class OperatorTransactionRequest(OperatorTransactionMixin, db.Model):
             db.Index('idx_operator_transaction_request_opening_ts', 'debtor_id', 'operator_branch_id', 'opening_ts'),
         )
 
+    prepared_transaction = db.relationship(
+        'PreparedTransaction',
+        secondary=lambda: prepared_operator_transaction,
+        passive_deletes=True,
+        uselist=False,
+        backref=db.backref('operator_transaction_request', passive_deletes=True, uselist=False),
+    )
 
-class OperatorTransaction(OperatorTransactionMixin, db.Model):
+
+class OperatorTransaction(OperatorTransactionMixin, DebtorModel):
     closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
