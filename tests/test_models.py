@@ -51,6 +51,7 @@ def test_create_prepared_transaction(db_session):
     db_session.commit()
     assert otr.prepared_transaction is pt
     assert otr.operator is o
+    assert otr.branch is b
     assert pt.operator_transaction_request is otr
     db_session.delete(pt)
     db_session.commit()
@@ -76,7 +77,9 @@ def test_create_transactions(db_session):
     assert len(d1.operator_list) == 2
     assert len(d1.operator_list) == 2
     assert len(d1.operator_transaction_list) == 2
+    assert len(b1.operator_transaction_list) == 2
     assert len(d2.operator_transaction_list) == 1
+    assert len(b2.operator_transaction_list) == 1
     assert Operator.query.filter_by(debtor=d2).count() == 2
     operators = Operator.query.filter_by(debtor=d1).order_by('user_id').all()
     assert len(operators) == 2

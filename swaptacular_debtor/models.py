@@ -4,6 +4,7 @@ import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
+from sqlalchemy.sql.expression import and_
 from .extensions import db
 
 
@@ -157,6 +158,17 @@ class OperatorTransactionMixin:
     def operator(cls):
         return db.relationship(
             'Operator',
+            backref=db.backref(cls.__tablename__ + '_list', cascade='all, delete-orphan', passive_deletes=True),
+        )
+
+    @declared_attr
+    def branch(cls):
+        return db.relationship(
+            Branch,
+            primaryjoin=and_(
+                Branch.debtor_id == db.foreign(cls.debtor_id),
+                Branch.branch_id == db.foreign(cls.operator_branch_id),
+            ),
             backref=db.backref(cls.__tablename__ + '_list', cascade='all, delete-orphan', passive_deletes=True),
         )
 
