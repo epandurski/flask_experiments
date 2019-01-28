@@ -245,3 +245,38 @@ class OperatorTransaction(OperatorTransactionMixin, db.Model):
         return super().__table_args__ + (
             db.Index('idx_operator_transaction_closing_ts', 'debtor_id', 'operator_branch_id', 'closing_ts'),
         )
+
+
+prepared_operator_transaction = db.Table(
+    'prepared_operator_transaction',
+    db.Column('debtor_id', db.BigInteger, primary_key=True),
+    db.Column('creditor_id', db.BigInteger, primary_key=True),
+    db.Column('operator_transaction_request_seqnum', db.BigInteger, primary_key=True),
+    db.Column('prepared_transaction_seqnum', db.BigInteger),
+    db.ForeignKeyConstraint(
+        [
+            'debtor_id',
+            'creditor_id',
+            'operator_transaction_request_seqnum',
+        ],
+        [
+            'operator_transaction_request.debtor_id',
+            'operator_transaction_request.creditor_id',
+            'operator_transaction_request.operator_transaction_request_seqnum',
+        ],
+        ondelete='CASCADE',
+    ),
+    db.ForeignKeyConstraint(
+        [
+            'debtor_id',
+            'creditor_id',
+            'prepared_transaction_seqnum',
+        ],
+        [
+            'prepared_transaction.debtor_id',
+            'prepared_transaction.creditor_id',
+            'prepared_transaction.prepared_transaction_seqnum',
+        ],
+        ondelete='CASCADE',
+    ),
+)
