@@ -80,29 +80,29 @@ class Account(DebtorModel):
 
 class PreparedTransfer(DebtorModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
-    creditor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    transaction_type = db.Column(
+    sender_creditor_id = db.Column(db.BigInteger, nullable=False)
+    recipient_creditor_id = db.Column(db.BigInteger, nullable=False)
+    transfer_type = db.Column(
         db.SmallInteger,
         nullable=False,
         comment='1 -- operator transaction',
     )
-    amount = db.Column(
-        db.BigInteger,
-        nullable=False,
-        comment='A positive number indicates a deposit, a negative number -- a withdrawal.',
-    )
+    amount = db.Column(db.BigInteger, nullable=False)
+    sender_locked_amount = db.Column(db.BigInteger, nullable=False)
     __table_args__ = (
         db.ForeignKeyConstraint(
-            ['debtor_id', 'creditor_id'],
+            ['debtor_id', 'sender_creditor_id'],
             ['account.debtor_id', 'account.creditor_id'],
-            ondelete='CASCADE',
         ),
+        db.Index('idx_prepared_transfer_sender_creditor_id', 'debtor_id', 'sender_creditor_id'),
+        db.CheckConstraint('amount >= 0'),
+        db.CheckConstraint('sender_locked_amount >= 0'),
     )
 
-    account = db.relationship(
+    sender_account = db.relationship(
         'Account',
-        backref=db.backref('prepared_transfer_list', cascade='all, delete-orphan', passive_deletes=True),
+        backref=db.backref('prepared_transfer_list'),
     )
 
 
@@ -224,14 +224,18 @@ prepared_operator_transaction = db.Table(
     db.ForeignKeyConstraint(
         [
             'debtor_id',
-            'creditor_id',
             'prepared_transfer_seqnum',
         ],
         [
             'prepared_transfer.debtor_id',
-            'prepared_transfer.creditor_id',
             'prepared_transfer.prepared_transfer_seqnum',
         ],
         ondelete='CASCADE',
+    ),
+    db.Index(
+        'idx_prepared_operator_transaction_unique_prepared_transfer',
+        'debtor_id',
+        'prepared_transfer_seqnum',
+        unique=True,
     ),
 )

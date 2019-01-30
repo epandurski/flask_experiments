@@ -46,7 +46,14 @@ def test_create_prepared_transfer(db_session):
     b = Branch(debtor=d, branch_id=1)
     o = Operator(branch=b, user_id=1, alias='user 1')
     otr = OperatorTransactionRequest(creditor_id=666, operator=o, amount=50)
-    pt = PreparedTransfer(account=a, transaction_type=1, operator_transaction_request=otr, amount=50)
+    pt = PreparedTransfer(
+        sender_account=a,
+        recipient_creditor_id=777,
+        transfer_type=1,
+        operator_transaction_request=otr,
+        amount=50,
+        sender_locked_amount=50,
+    )
     db_session.add(pt)
     db_session.commit()
     assert otr.prepared_transfer is pt
