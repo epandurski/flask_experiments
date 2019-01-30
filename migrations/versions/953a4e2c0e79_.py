@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 1556f89bb010
+Revision ID: 953a4e2c0e79
 Revises: 
-Create Date: 2019-01-28 20:00:46.113519
+Create Date: 2019-01-30 14:05:21.914898
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '1556f89bb010'
+revision = '953a4e2c0e79'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -54,14 +54,14 @@ def upgrade():
     sa.ForeignKeyConstraint(['debtor_id', 'branch_id'], ['branch.debtor_id', 'branch.branch_id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('debtor_id', 'branch_id', 'user_id')
     )
-    op.create_table('prepared_transaction',
+    op.create_table('prepared_transfer',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('prepared_transaction_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('transaction_type', sa.SmallInteger(), nullable=False, comment='1 -- operator transaction'),
     sa.Column('amount', sa.BigInteger(), nullable=False, comment='A positive number indicates a deposit, a negative number -- a withdrawal.'),
     sa.ForeignKeyConstraint(['debtor_id', 'creditor_id'], ['account.debtor_id', 'account.creditor_id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'prepared_transaction_seqnum')
+    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'prepared_transfer_seqnum')
     )
     op.create_table('operator_transaction',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
@@ -94,9 +94,9 @@ def upgrade():
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), nullable=False),
-    sa.Column('prepared_transaction_seqnum', sa.BigInteger(), nullable=True),
+    sa.Column('prepared_transfer_seqnum', sa.BigInteger(), nullable=True),
     sa.ForeignKeyConstraint(['debtor_id', 'creditor_id', 'operator_transaction_request_seqnum'], ['operator_transaction_request.debtor_id', 'operator_transaction_request.creditor_id', 'operator_transaction_request.operator_transaction_request_seqnum'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['debtor_id', 'creditor_id', 'prepared_transaction_seqnum'], ['prepared_transaction.debtor_id', 'prepared_transaction.creditor_id', 'prepared_transaction.prepared_transaction_seqnum'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['debtor_id', 'creditor_id', 'prepared_transfer_seqnum'], ['prepared_transfer.debtor_id', 'prepared_transfer.creditor_id', 'prepared_transfer.prepared_transfer_seqnum'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_request_seqnum')
     )
     # ### end Alembic commands ###
@@ -109,7 +109,7 @@ def downgrade():
     op.drop_table('operator_transaction_request')
     op.drop_index('idx_operator_transaction_closing_ts', table_name='operator_transaction')
     op.drop_table('operator_transaction')
-    op.drop_table('prepared_transaction')
+    op.drop_table('prepared_transfer')
     op.drop_table('operator')
     op.drop_table('branch')
     op.drop_table('account')

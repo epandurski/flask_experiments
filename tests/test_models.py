@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import inspect
 from swaptacular_debtor.models import ShardingKey, Debtor, Account, Branch, Operator, OperatorTransaction, \
-    OperatorTransactionRequest, PreparedTransaction
+    OperatorTransactionRequest, PreparedTransfer
 
 
 def test_create_sharding_key():
@@ -40,22 +40,22 @@ def test_create_accounts(db_session):
 
 
 @pytest.mark.models
-def test_create_prepared_transaction(db_session):
+def test_create_prepared_transfer(db_session):
     d = Debtor(debtor_id=ShardingKey.generate())
     a = Account(debtor=d, creditor_id=666)
     b = Branch(debtor=d, branch_id=1)
     o = Operator(branch=b, user_id=1, alias='user 1')
     otr = OperatorTransactionRequest(creditor_id=666, operator=o, amount=50)
-    pt = PreparedTransaction(account=a, transaction_type=1, operator_transaction_request=otr, amount=50)
+    pt = PreparedTransfer(account=a, transaction_type=1, operator_transaction_request=otr, amount=50)
     db_session.add(pt)
     db_session.commit()
-    assert otr.prepared_transaction is pt
+    assert otr.prepared_transfer is pt
     assert otr.operator is o
     assert otr.branch is b
     assert pt.operator_transaction_request is otr
     db_session.delete(pt)
     db_session.commit()
-    assert otr.prepared_transaction is None
+    assert otr.prepared_transfer is None
 
 
 @pytest.mark.models

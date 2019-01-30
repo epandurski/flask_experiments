@@ -78,10 +78,10 @@ class Account(DebtorModel):
     )
 
 
-class PreparedTransaction(DebtorModel):
+class PreparedTransfer(DebtorModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
-    prepared_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     transaction_type = db.Column(
         db.SmallInteger,
         nullable=False,
@@ -102,7 +102,7 @@ class PreparedTransaction(DebtorModel):
 
     account = db.relationship(
         'Account',
-        backref=db.backref('prepared_transaction_list', cascade='all, delete-orphan', passive_deletes=True),
+        backref=db.backref('prepared_transfer_list', cascade='all, delete-orphan', passive_deletes=True),
     )
 
 
@@ -182,8 +182,8 @@ class OperatorTransactionRequest(OperatorTransactionMixin, DebtorModel):
             db.Index('idx_operator_transaction_request_opening_ts', 'debtor_id', 'operator_branch_id', 'opening_ts'),
         )
 
-    prepared_transaction = db.relationship(
-        'PreparedTransaction',
+    prepared_transfer = db.relationship(
+        'PreparedTransfer',
         secondary=lambda: prepared_operator_transaction,
         passive_deletes=True,
         uselist=False,
@@ -207,7 +207,7 @@ prepared_operator_transaction = db.Table(
     db.Column('debtor_id', db.BigInteger, primary_key=True),
     db.Column('creditor_id', db.BigInteger, primary_key=True),
     db.Column('operator_transaction_request_seqnum', db.BigInteger, primary_key=True),
-    db.Column('prepared_transaction_seqnum', db.BigInteger),
+    db.Column('prepared_transfer_seqnum', db.BigInteger),
     db.ForeignKeyConstraint(
         [
             'debtor_id',
@@ -225,12 +225,12 @@ prepared_operator_transaction = db.Table(
         [
             'debtor_id',
             'creditor_id',
-            'prepared_transaction_seqnum',
+            'prepared_transfer_seqnum',
         ],
         [
-            'prepared_transaction.debtor_id',
-            'prepared_transaction.creditor_id',
-            'prepared_transaction.prepared_transaction_seqnum',
+            'prepared_transfer.debtor_id',
+            'prepared_transfer.creditor_id',
+            'prepared_transfer.prepared_transfer_seqnum',
         ],
         ondelete='CASCADE',
     ),
