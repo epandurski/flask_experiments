@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: debbe2e56583
+Revision ID: 0599d7a2daa9
 Revises: 
-Create Date: 2019-01-30 17:56:25.875367
+Create Date: 2019-01-30 18:04:57.168046
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'debbe2e56583'
+revision = '0599d7a2daa9'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -27,8 +27,8 @@ def upgrade():
     sa.Column('guarantor_id', sa.BigInteger(), nullable=False),
     sa.Column('guarantor_debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('guarantor_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('max_demurrage_rate', sa.Float(), nullable=False, comment='The debtor will not be allowed to collect demurrages exceeding this annual rate (in percents).'),
-    sa.Column('default_demurrage_rate', sa.Float(), nullable=False, comment='The default annual demurrage rate in percents'),
+    sa.Column('max_demurrage_rate', sa.REAL(), nullable=False, comment='The debtor will not be allowed to collect demurrages exceeding this annual rate (in percents).'),
+    sa.Column('default_demurrage_rate', sa.REAL(), nullable=False, comment='The default annual demurrage rate in percents'),
     sa.CheckConstraint('default_demurrage_rate >= 0'),
     sa.CheckConstraint('max_demurrage_rate >= 0'),
     sa.ForeignKeyConstraint(['debtor_id'], ['sharding_key.sharding_key_value'], ),
@@ -39,7 +39,7 @@ def upgrade():
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('balance', sa.BigInteger(), nullable=False, comment='The total owed amount'),
     sa.Column('demurrage', sa.BigInteger(), nullable=False, comment='The negative interest accumulated on the account'),
-    sa.Column('demurrage_rate', sa.Float(), nullable=True, comment='This is the annual demurrage rate in percents for this account. NULL indicates that default demurrage rate should be used.'),
+    sa.Column('demurrage_rate', sa.REAL(), nullable=True, comment='This is the annual demurrage rate in percents for this account. NULL indicates that default demurrage rate should be used.'),
     sa.Column('avl_balance', sa.BigInteger(), nullable=False, comment='The total owed amount, minus demurrage, minus pending transfer locks'),
     sa.CheckConstraint('demurrage >= 0'),
     sa.CheckConstraint('demurrage_rate IS NULL OR demurrage_rate >= 0'),

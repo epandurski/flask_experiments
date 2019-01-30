@@ -51,13 +51,13 @@ class Debtor(db.Model):
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
     max_demurrage_rate = db.Column(
-        db.Float,
+        db.REAL,
         nullable=False,
         default=0.0,
         comment="The debtor will not be allowed to collect demurrages exceeding this annual rate (in percents).",
     )
     default_demurrage_rate = db.Column(
-        db.Float,
+        db.REAL,
         nullable=False,
         default=0.0,
         comment="The default annual demurrage rate in percents",
@@ -96,7 +96,7 @@ class Account(DebtorModel):
         comment='The negative interest accumulated on the account',
     )
     demurrage_rate = db.Column(
-        db.Float,
+        db.REAL,
         comment="This is the annual demurrage rate in percents for this account. "
                 "NULL indicates that default demurrage rate should be used.",
     )
