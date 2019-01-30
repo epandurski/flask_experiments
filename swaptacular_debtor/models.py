@@ -48,7 +48,7 @@ class ShardingKey(db.Model):
 
 class Debtor(db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.sharding_key_value'), primary_key=True)
-    guarantor_id = db.Column(db.BigInteger, nullable=False)
+    guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
     demurrage_rate = db.Column(db.REAL, nullable=False, default=0.0)
