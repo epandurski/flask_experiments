@@ -1,6 +1,7 @@
 import os
 import struct
 import datetime
+import math
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
@@ -50,21 +51,11 @@ class Debtor(db.Model):
     guarantor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
-    max_demurrage_rate = db.Column(
-        db.REAL,
-        nullable=False,
-        default=0.0,
-        comment="The debtor will not be allowed to collect demurrages exceeding this annual rate (in percents).",
-    )
-    default_demurrage_rate = db.Column(
-        db.REAL,
-        nullable=False,
-        default=0.0,
-        comment="The default annual demurrage rate in percents",
-    )
+    demurrage_rate = db.Column(db.REAL, nullable=False, default=0.0)
+    demurrage_rate_ceiling = db.Column(db.REAL, nullable=False, default=0.0)
     __table_args__ = (
-        db.CheckConstraint('max_demurrage_rate >= 0'),
-        db.CheckConstraint('default_demurrage_rate >= 0'),
+        db.CheckConstraint('demurrage_rate >= 0'),
+        db.CheckConstraint('demurrage_rate_ceiling >= 0'),
     )
 
 
@@ -83,6 +74,7 @@ class DebtorModel(db.Model):
 class Account(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
+    discount_demurrage_rate = db.Column(db.REAL, nullable=False, default=math.inf)
     balance = db.Column(
         db.BigInteger,
         nullable=False,
@@ -93,12 +85,10 @@ class Account(DebtorModel):
         db.BigInteger,
         nullable=False,
         default=0,
-        comment='The negative interest accumulated on the account',
-    )
-    demurrage_rate = db.Column(
-        db.REAL,
-        comment="This is the annual demurrage rate in percents for this account. "
-                "NULL indicates that default demurrage rate should be used.",
+        comment='This is the amount of negative interest accumulated on the account. '
+                'Demurrage accumulates at an annual rate (in percents) that is equal to '
+                'the minimum of the following values: `account.discount_demurrage_rate`, '
+                '`debtor.demurrage_rate`, `debtor.demurrage_rate_ceiling`.',
     )
     avl_balance = db.Column(
         db.BigInteger,
@@ -108,7 +98,7 @@ class Account(DebtorModel):
     )
     __table_args__ = (
         db.CheckConstraint('demurrage >= 0'),
-        db.CheckConstraint('demurrage_rate IS NULL OR demurrage_rate >= 0'),
+        db.CheckConstraint('discount_demurrage_rate >= 0'),
     )
 
 

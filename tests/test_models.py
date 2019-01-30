@@ -1,3 +1,4 @@
+import math
 import pytest
 from sqlalchemy import inspect
 from swaptacular_debtor.models import ShardingKey, Debtor, Account, Branch, Operator, OperatorTransaction, \
@@ -37,6 +38,9 @@ def test_create_accounts(db_session):
     db_session.commit()
     assert len(d1.account_list) == 2
     assert len(d2.account_list) == 1
+    discount_demurrage_rate = d2.account_list[0].discount_demurrage_rate
+    assert discount_demurrage_rate > 1e30
+    assert math.isinf(discount_demurrage_rate)
 
 
 @pytest.mark.models
