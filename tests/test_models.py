@@ -29,10 +29,10 @@ def test_no_sharding_keys(db_session):
 
 @pytest.mark.models
 def test_create_accounts(db_session):
-    d1 = Debtor(debtor_id=ShardingKey.generate())
+    d1 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
     db_session.add(Account(debtor=d1, creditor_id=666))
     db_session.add(Account(debtor=d1, creditor_id=777))
-    d2 = Debtor(debtor_id=ShardingKey.generate())
+    d2 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
     db_session.add(Account(debtor=d2, creditor_id=888))
     db_session.commit()
     assert len(d1.account_list) == 2
@@ -41,7 +41,7 @@ def test_create_accounts(db_session):
 
 @pytest.mark.models
 def test_create_prepared_transfer(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate())
+    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
     a = Account(debtor=d, creditor_id=666)
     b = Branch(debtor=d, branch_id=1)
     o = Operator(branch=b, user_id=1, alias='user 1')
@@ -67,14 +67,14 @@ def test_create_prepared_transfer(db_session):
 
 @pytest.mark.models
 def test_create_transactions(db_session):
-    d1 = Debtor(debtor_id=ShardingKey.generate())
+    d1 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
     b1 = Branch(debtor=d1, branch_id=1)
     o1 = Operator(debtor=d1, branch=b1, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d1, branch=b1, user_id=2, alias='user 2'))
     db_session.add(OperatorTransaction(debtor=d1, creditor_id=666, amount=5, operator=o1))
     db_session.add(OperatorTransaction(debtor=d1, creditor_id=777, amount=50, operator=o1))
 
-    d2 = Debtor(debtor_id=ShardingKey.generate())
+    d2 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
     b2 = Branch(debtor=d2, branch_id=1)
     o2 = Operator(debtor=d2, branch=b2, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d2, branch=b2, user_id=3, alias='user 3'))

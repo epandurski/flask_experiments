@@ -50,10 +50,21 @@ class Debtor(db.Model):
     guarantor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
+    max_demurrage_rate = db.Column(
+        db.Float,
+        nullable=False,
+        default=0.0,
+        comment="The debtor will not be allowed to collect demurrages exceeding this annual rate (in percents).",
+    )
+    default_demurrage_rate = db.Column(
+        db.Float,
+        nullable=False,
+        default=0.0,
+        comment="The default annual demurrage rate in percents",
+    )
     __table_args__ = (
-        dict(
-            comment='The guarantor must not change.'
-        ),
+        db.CheckConstraint('max_demurrage_rate >= 0'),
+        db.CheckConstraint('default_demurrage_rate >= 0'),
     )
 
 
@@ -78,11 +89,26 @@ class Account(DebtorModel):
         default=0,
         comment='The total owed amount',
     )
+    demurrage = db.Column(
+        db.BigInteger,
+        nullable=False,
+        default=0,
+        comment='The negative interest accumulated on the account',
+    )
+    demurrage_rate = db.Column(
+        db.Float,
+        comment="This is the annual demurrage rate in percents for this account. "
+                "NULL indicates that default demurrage rate should be used.",
+    )
     avl_balance = db.Column(
         db.BigInteger,
         nullable=False,
         default=0,
-        comment='The total owed amount minus all pending transaction locks',
+        comment='The total owed amount, minus demurrage, minus pending transfer locks',
+    )
+    __table_args__ = (
+        db.CheckConstraint('demurrage >= 0'),
+        db.CheckConstraint('demurrage_rate IS NULL OR demurrage_rate >= 0'),
     )
 
 
