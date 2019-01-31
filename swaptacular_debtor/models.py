@@ -102,6 +102,11 @@ class Account(DebtorModel):
     )
 
 
+class TradingTurn(DebtorModel):
+    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
+    trading_turn_id = db.Column(db.BigInteger, primary_key=True)
+
+
 class PreparedTransfer(DebtorModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
@@ -110,23 +115,43 @@ class PreparedTransfer(DebtorModel):
     transfer_type = db.Column(
         db.SmallInteger,
         nullable=False,
-        comment='1 -- operator transaction',
+        comment='1 -- trading turn transfer, 2 -- withdrawal, 3 -- deposit',
     )
     amount = db.Column(db.BigInteger, nullable=False)
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
+    trading_turn_id = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'sender_creditor_id'],
             ['account.debtor_id', 'account.creditor_id'],
+            ondelete='CASCADE',
+        ),
+        db.ForeignKeyConstraint(
+            ['debtor_id', 'trading_turn_id'],
+            ['trading_turn.debtor_id', 'trading_turn.trading_turn_id'],
+            ondelete='CASCADE',
         ),
         db.Index('idx_prepared_transfer_sender_creditor_id', 'debtor_id', 'sender_creditor_id'),
+        db.Index(
+            'idx_prepared_transfer_trading_turn_id',
+            'debtor_id',
+            'trading_turn_id',
+            postgresql_where=db.text('trading_turn_id IS NOT NULL'),
+        ),
         db.CheckConstraint('amount >= 0'),
         db.CheckConstraint('sender_locked_amount >= 0'),
+        db.CheckConstraint(
+            '(transfer_type!=1 AND trading_turn_id IS NULL) OR (transfer_type=1 AND trading_turn_id IS NOT NULL)',
+        ),
     )
 
     sender_account = db.relationship(
         'Account',
-        backref=db.backref('prepared_transfer_list'),
+        backref=db.backref('prepared_transfer_list', cascade='all, delete-orphan', passive_deletes=True),
+    )
+    trading_turn = db.relationship(
+        'TradingTurn',
+        backref=db.backref('prepared_transfer_list', cascade='all', passive_deletes=True),
     )
 
 
@@ -257,7 +282,7 @@ prepared_operator_transaction = db.Table(
         ondelete='CASCADE',
     ),
     db.Index(
-        'idx_prepared_operator_transaction_unique_prepared_transfer',
+        'idx_prepared_operator_transaction_prepared_transfer_seqnum',
         'debtor_id',
         'prepared_transfer_seqnum',
         unique=True,

@@ -53,7 +53,7 @@ def test_create_prepared_transfer(db_session):
     pt = PreparedTransfer(
         sender_account=a,
         recipient_creditor_id=777,
-        transfer_type=1,
+        transfer_type=2,
         operator_transaction_request=otr,
         amount=50,
         sender_locked_amount=50,
