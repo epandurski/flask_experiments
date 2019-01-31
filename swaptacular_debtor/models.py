@@ -8,6 +8,8 @@ from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_
 from .extensions import db
 
+BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
+
 
 def get_now_utc():
     return datetime.datetime.now(tz=datetime.timezone.utc)
@@ -96,7 +98,7 @@ class Account(DebtorModel):
         default=0,
         comment='The total owed amount, minus demurrage, minus pending transfer locks',
     )
-    last_transfer_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
+    last_transfer_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=BEGINNING_OF_TIME)
     __table_args__ = (
         db.CheckConstraint('demurrage >= 0'),
         db.CheckConstraint('discount_demurrage_rate >= 0'),
