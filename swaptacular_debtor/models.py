@@ -96,6 +96,7 @@ class Account(DebtorModel):
         default=0,
         comment='The total owed amount, minus demurrage, minus pending transfer locks',
     )
+    last_transfer_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     __table_args__ = (
         db.CheckConstraint('demurrage >= 0'),
         db.CheckConstraint('discount_demurrage_rate >= 0'),
@@ -119,6 +120,7 @@ class PreparedTransfer(DebtorModel):
     )
     amount = db.Column(db.BigInteger, nullable=False)
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
+    prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     trading_turn_id = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
