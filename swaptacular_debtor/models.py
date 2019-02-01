@@ -105,11 +105,6 @@ class Account(DebtorModel):
     )
 
 
-class Coordinator(DebtorModel):
-    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
-    coordinator_id = db.Column(db.Integer, primary_key=True)
-
-
 class PreparedTransfer(DebtorModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
@@ -146,13 +141,7 @@ class PreparedTransfer(DebtorModel):
                 'operator_transaction_request.operator_transaction_request_seqnum',
             ],
         ),
-        db.Index(
-            'idx_prepared_transfer_sender_creditor_id',
-            'debtor_id',
-            'sender_creditor_id',
-            'operator_transaction_request_seqnum',
-            unique=True,
-        ),
+        db.Index('idx_prepared_transfer_sender_creditor_id', 'debtor_id', 'sender_creditor_id'),
         db.CheckConstraint('amount >= 0'),
         db.CheckConstraint('sender_locked_amount >= 0'),
         db.CheckConstraint(
@@ -177,6 +166,12 @@ class PreparedTransfer(DebtorModel):
         'OperatorTransactionRequest',
         backref=db.backref('prepared_transfer', uselist=False),
     )
+
+
+class Coordinator(DebtorModel):
+    debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
+    coordinator_id = db.Column(db.Integer, primary_key=True)
+    info = db.Column(pg.JSONB, nullable=False, default={})
 
 
 class Branch(DebtorModel):
