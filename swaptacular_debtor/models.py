@@ -156,12 +156,12 @@ class PreparedTransfer(DebtorModel):
         db.CheckConstraint('amount >= 0'),
         db.CheckConstraint('sender_locked_amount >= 0'),
         db.CheckConstraint(
-            '(transfer_type!=1 AND coordinator_id IS NULL) OR'
-            ' (transfer_type=1 AND coordinator_id IS NOT NULL)',
+            '(transfer_type!=1 AND coordinator_id IS NULL) OR '
+            '(transfer_type=1 AND coordinator_id IS NOT NULL)',
         ),
         db.CheckConstraint(
-            '(transfer_type!=2 AND operator_transaction_request_seqnum IS NULL) OR'
-            ' (transfer_type=2 AND operator_transaction_request_seqnum IS NOT NULL)',
+            '(transfer_type!=2 AND operator_transaction_request_seqnum IS NULL) OR '
+            '(transfer_type=2 AND operator_transaction_request_seqnum IS NOT NULL)',
         ),
     )
 
