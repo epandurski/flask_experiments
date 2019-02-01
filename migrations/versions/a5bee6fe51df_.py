@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: ae7091cfdfa9
+Revision ID: a5bee6fe51df
 Revises: 
-Create Date: 2019-02-01 14:48:18.499106
+Create Date: 2019-02-01 19:01:44.322492
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'ae7091cfdfa9'
+revision = 'a5bee6fe51df'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -56,7 +56,7 @@ def upgrade():
     )
     op.create_table('coordinator',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
-    sa.Column('coordinator_id', sa.BigInteger(), nullable=False),
+    sa.Column('coordinator_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['debtor_id'], ['debtor.debtor_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'coordinator_id')
     )
@@ -69,28 +69,9 @@ def upgrade():
     sa.Column('can_withdraw', sa.Boolean(), nullable=False),
     sa.Column('can_deposit', sa.Boolean(), nullable=False),
     sa.Column('can_audit', sa.Boolean(), nullable=False),
-    sa.ForeignKeyConstraint(['debtor_id', 'branch_id'], ['branch.debtor_id', 'branch.branch_id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['debtor_id', 'branch_id'], ['branch.debtor_id', 'branch.branch_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'branch_id', 'user_id')
     )
-    op.create_table('prepared_transfer',
-    sa.Column('debtor_id', sa.BigInteger(), nullable=False),
-    sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
-    sa.Column('sender_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('recipient_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- withdrawal, 3 -- deposit'),
-    sa.Column('amount', sa.BigInteger(), nullable=False),
-    sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
-    sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('coordinator_id', sa.BigInteger(), nullable=True),
-    sa.CheckConstraint('(transfer_type!=1 AND coordinator_id IS NULL) OR (transfer_type=1 AND coordinator_id IS NOT NULL)'),
-    sa.CheckConstraint('amount >= 0'),
-    sa.CheckConstraint('sender_locked_amount >= 0'),
-    sa.ForeignKeyConstraint(['debtor_id', 'coordinator_id'], ['coordinator.debtor_id', 'coordinator.coordinator_id'], ),
-    sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('debtor_id', 'prepared_transfer_seqnum')
-    )
-    op.create_index('idx_prepared_transfer_coordinator_id', 'prepared_transfer', ['debtor_id', 'coordinator_id'], unique=False, postgresql_where=sa.text('coordinator_id IS NOT NULL'))
-    op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id'], unique=False)
     op.create_table('operator_transaction',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
@@ -101,7 +82,7 @@ def upgrade():
     sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('closing_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('operator_transaction_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_seqnum')
     )
     op.create_index('idx_operator_transaction_closing_ts', 'operator_transaction', ['debtor_id', 'operator_branch_id', 'closing_ts'], unique=False)
@@ -114,34 +95,42 @@ def upgrade():
     sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_request_seqnum')
     )
     op.create_index('idx_operator_transaction_request_opening_ts', 'operator_transaction_request', ['debtor_id', 'operator_branch_id', 'opening_ts'], unique=False)
-    op.create_table('prepared_operator_transaction',
+    op.create_table('prepared_transfer',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
-    sa.Column('creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), nullable=False),
-    sa.Column('prepared_transfer_seqnum', sa.BigInteger(), nullable=True),
-    sa.ForeignKeyConstraint(['debtor_id', 'creditor_id', 'operator_transaction_request_seqnum'], ['operator_transaction_request.debtor_id', 'operator_transaction_request.creditor_id', 'operator_transaction_request.operator_transaction_request_seqnum'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['debtor_id', 'prepared_transfer_seqnum'], ['prepared_transfer.debtor_id', 'prepared_transfer.prepared_transfer_seqnum'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_request_seqnum')
+    sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('sender_creditor_id', sa.BigInteger(), nullable=False),
+    sa.Column('recipient_creditor_id', sa.BigInteger(), nullable=False),
+    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- withdrawal, 3 -- deposit'),
+    sa.Column('amount', sa.BigInteger(), nullable=False),
+    sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
+    sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),
+    sa.Column('coordinator_id', sa.Integer(), nullable=True),
+    sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), nullable=True),
+    sa.CheckConstraint('(transfer_type!=1 AND coordinator_id IS NULL) OR (transfer_type=1 AND coordinator_id IS NOT NULL)'),
+    sa.CheckConstraint('(transfer_type!=2 AND operator_transaction_request_seqnum IS NULL) OR (transfer_type=2 AND operator_transaction_request_seqnum IS NOT NULL)'),
+    sa.CheckConstraint('amount >= 0'),
+    sa.CheckConstraint('sender_locked_amount >= 0'),
+    sa.ForeignKeyConstraint(['debtor_id', 'coordinator_id'], ['coordinator.debtor_id', 'coordinator.coordinator_id'], ),
+    sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id', 'operator_transaction_request_seqnum'], ['operator_transaction_request.debtor_id', 'operator_transaction_request.creditor_id', 'operator_transaction_request.operator_transaction_request_seqnum'], ),
+    sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ),
+    sa.PrimaryKeyConstraint('debtor_id', 'prepared_transfer_seqnum')
     )
-    op.create_index('idx_prepared_operator_transaction_prepared_transfer_seqnum', 'prepared_operator_transaction', ['debtor_id', 'prepared_transfer_seqnum'], unique=True)
+    op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id', 'operator_transaction_request_seqnum'], unique=True)
     # ### end Alembic commands ###
 
 
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_index('idx_prepared_operator_transaction_prepared_transfer_seqnum', table_name='prepared_operator_transaction')
-    op.drop_table('prepared_operator_transaction')
+    op.drop_index('idx_prepared_transfer_sender_creditor_id', table_name='prepared_transfer')
+    op.drop_table('prepared_transfer')
     op.drop_index('idx_operator_transaction_request_opening_ts', table_name='operator_transaction_request')
     op.drop_table('operator_transaction_request')
     op.drop_index('idx_operator_transaction_closing_ts', table_name='operator_transaction')
     op.drop_table('operator_transaction')
-    op.drop_index('idx_prepared_transfer_sender_creditor_id', table_name='prepared_transfer')
-    op.drop_index('idx_prepared_transfer_coordinator_id', table_name='prepared_transfer')
-    op.drop_table('prepared_transfer')
     op.drop_table('operator')
     op.drop_table('coordinator')
     op.drop_table('branch')

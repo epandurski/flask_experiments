@@ -107,7 +107,7 @@ class Account(DebtorModel):
 
 class Coordinator(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
-    coordinator_id = db.Column(db.BigInteger, primary_key=True)
+    coordinator_id = db.Column(db.Integer, primary_key=True)
 
 
 class PreparedTransfer(DebtorModel):
@@ -123,13 +123,12 @@ class PreparedTransfer(DebtorModel):
     amount = db.Column(db.BigInteger, nullable=False)
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
-    coordinator_id = db.Column(db.BigInteger)
+    coordinator_id = db.Column(db.Integer)
     operator_transaction_request_seqnum = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'sender_creditor_id'],
             ['account.debtor_id', 'account.creditor_id'],
-            ondelete='CASCADE',
         ),
         db.ForeignKeyConstraint(
             ['debtor_id', 'coordinator_id'],
@@ -168,7 +167,7 @@ class PreparedTransfer(DebtorModel):
 
     sender_account = db.relationship(
         'Account',
-        backref=db.backref('prepared_transfer_list', cascade='all, delete-orphan', passive_deletes=True),
+        backref=db.backref('prepared_transfer_list'),
     )
     coordinator = db.relationship(
         'Coordinator',
@@ -256,8 +255,8 @@ class OperatorTransactionRequest(OperatorTransactionDataMixin, DebtorModel):
 
 
 class OperatorTransaction(OperatorTransactionDataMixin, DebtorModel):
-    operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
+    operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr
     def __table_args__(cls):
