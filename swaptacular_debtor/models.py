@@ -187,7 +187,7 @@ class Operator(DebtorModel):
     )
 
 
-class OperatorTransactionMixin:
+class OperatorTransactionDataMixin:
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     amount = db.Column(db.BigInteger, nullable=False)
@@ -225,7 +225,7 @@ class OperatorTransactionMixin:
         )
 
 
-class OperatorTransactionRequest(OperatorTransactionMixin, DebtorModel):
+class OperatorTransactionRequest(OperatorTransactionDataMixin, DebtorModel):
     operator_transaction_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr
@@ -243,7 +243,7 @@ class OperatorTransactionRequest(OperatorTransactionMixin, DebtorModel):
     )
 
 
-class OperatorTransaction(OperatorTransactionMixin, DebtorModel):
+class OperatorTransaction(OperatorTransactionDataMixin, DebtorModel):
     closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
