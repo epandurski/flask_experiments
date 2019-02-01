@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: a5bee6fe51df
+Revision ID: ec245fb44c7c
 Revises: 
-Create Date: 2019-02-01 19:01:44.322492
+Create Date: 2019-02-01 20:16:49.227304
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'a5bee6fe51df'
+revision = 'ec245fb44c7c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -57,6 +57,7 @@ def upgrade():
     op.create_table('coordinator',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('coordinator_id', sa.Integer(), nullable=False),
+    sa.Column('info', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.ForeignKeyConstraint(['debtor_id'], ['debtor.debtor_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'coordinator_id')
     )
@@ -119,7 +120,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'prepared_transfer_seqnum')
     )
-    op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id', 'operator_transaction_request_seqnum'], unique=True)
+    op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id'], unique=False)
     # ### end Alembic commands ###
 
 
