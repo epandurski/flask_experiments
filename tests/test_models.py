@@ -101,8 +101,7 @@ def test_create_transactions(db_session):
     assert operator.profile == {}
     t = operator.operator_transaction_list[0]
     assert t.amount in [5, 50]
-    operator.operator_transaction_list.remove(t)
-    assert t.operator is None
+    db_session.delete(t)
     db_session.flush()
     assert inspect(t).deleted
     db_session.commit()

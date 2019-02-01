@@ -124,6 +124,7 @@ class PreparedTransfer(DebtorModel):
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     coordinator_id = db.Column(db.BigInteger)
+    operator_transaction_request_seqnum = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'sender_creditor_id'],
@@ -134,17 +135,34 @@ class PreparedTransfer(DebtorModel):
             ['debtor_id', 'coordinator_id'],
             ['coordinator.debtor_id', 'coordinator.coordinator_id'],
         ),
-        db.Index('idx_prepared_transfer_sender_creditor_id', 'debtor_id', 'sender_creditor_id'),
+        db.ForeignKeyConstraint(
+            [
+                'debtor_id',
+                'sender_creditor_id',
+                'operator_transaction_request_seqnum',
+            ],
+            [
+                'operator_transaction_request.debtor_id',
+                'operator_transaction_request.creditor_id',
+                'operator_transaction_request.operator_transaction_request_seqnum',
+            ],
+        ),
         db.Index(
-            'idx_prepared_transfer_coordinator_id',
+            'idx_prepared_transfer_sender_creditor_id',
             'debtor_id',
-            'coordinator_id',
-            postgresql_where=db.text('coordinator_id IS NOT NULL'),
+            'sender_creditor_id',
+            'operator_transaction_request_seqnum',
+            unique=True,
         ),
         db.CheckConstraint('amount >= 0'),
         db.CheckConstraint('sender_locked_amount >= 0'),
         db.CheckConstraint(
-            '(transfer_type!=1 AND coordinator_id IS NULL) OR (transfer_type=1 AND coordinator_id IS NOT NULL)',
+            '(transfer_type!=1 AND coordinator_id IS NULL) OR'
+            ' (transfer_type=1 AND coordinator_id IS NOT NULL)',
+        ),
+        db.CheckConstraint(
+            '(transfer_type!=2 AND operator_transaction_request_seqnum IS NULL) OR'
+            ' (transfer_type=2 AND operator_transaction_request_seqnum IS NOT NULL)',
         ),
     )
 
@@ -155,6 +173,10 @@ class PreparedTransfer(DebtorModel):
     coordinator = db.relationship(
         'Coordinator',
         backref=db.backref('prepared_transfer_list'),
+    )
+    operator_transaction_request = db.relationship(
+        'OperatorTransactionRequest',
+        backref=db.backref('prepared_transfer', uselist=False),
     )
 
 
@@ -177,13 +199,12 @@ class Operator(DebtorModel):
         db.ForeignKeyConstraint(
             ['debtor_id', 'branch_id'],
             ['branch.debtor_id', 'branch.branch_id'],
-            ondelete='CASCADE',
         ),
     )
 
     branch = db.relationship(
         'Branch',
-        backref=db.backref('operator_list', cascade='all, delete-orphan', passive_deletes=True),
+        backref=db.backref('operator_list'),
     )
 
 
@@ -202,7 +223,6 @@ class OperatorTransactionDataMixin:
             db.ForeignKeyConstraint(
                 ['debtor_id', 'operator_branch_id', 'operator_user_id'],
                 ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
-                ondelete='CASCADE',
             ),
         )
 
@@ -210,7 +230,7 @@ class OperatorTransactionDataMixin:
     def operator(cls):
         return db.relationship(
             'Operator',
-            backref=db.backref(cls.__tablename__ + '_list', cascade='all, delete-orphan', passive_deletes=True),
+            backref=db.backref(cls.__tablename__ + '_list'),
         )
 
     @declared_attr
@@ -221,7 +241,7 @@ class OperatorTransactionDataMixin:
                 Branch.debtor_id == db.foreign(cls.debtor_id),
                 Branch.branch_id == db.foreign(cls.operator_branch_id),
             ),
-            backref=db.backref(cls.__tablename__ + '_list', cascade='all, delete-orphan', passive_deletes=True),
+            backref=db.backref(cls.__tablename__ + '_list'),
         )
 
 
@@ -234,60 +254,13 @@ class OperatorTransactionRequest(OperatorTransactionDataMixin, DebtorModel):
             db.Index('idx_operator_transaction_request_opening_ts', 'debtor_id', 'operator_branch_id', 'opening_ts'),
         )
 
-    prepared_transfer = db.relationship(
-        'PreparedTransfer',
-        secondary=lambda: prepared_operator_transaction,
-        passive_deletes=True,
-        uselist=False,
-        backref=db.backref('operator_transaction_request', passive_deletes=True, uselist=False),
-    )
-
 
 class OperatorTransaction(OperatorTransactionDataMixin, DebtorModel):
-    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
 
     @declared_attr
     def __table_args__(cls):
         return super().__table_args__ + (
             db.Index('idx_operator_transaction_closing_ts', 'debtor_id', 'operator_branch_id', 'closing_ts'),
         )
-
-
-prepared_operator_transaction = db.Table(
-    'prepared_operator_transaction',
-    db.Column('debtor_id', db.BigInteger, primary_key=True),
-    db.Column('creditor_id', db.BigInteger, primary_key=True),
-    db.Column('operator_transaction_request_seqnum', db.BigInteger, primary_key=True),
-    db.Column('prepared_transfer_seqnum', db.BigInteger),
-    db.ForeignKeyConstraint(
-        [
-            'debtor_id',
-            'creditor_id',
-            'operator_transaction_request_seqnum',
-        ],
-        [
-            'operator_transaction_request.debtor_id',
-            'operator_transaction_request.creditor_id',
-            'operator_transaction_request.operator_transaction_request_seqnum',
-        ],
-        ondelete='CASCADE',
-    ),
-    db.ForeignKeyConstraint(
-        [
-            'debtor_id',
-            'prepared_transfer_seqnum',
-        ],
-        [
-            'prepared_transfer.debtor_id',
-            'prepared_transfer.prepared_transfer_seqnum',
-        ],
-        ondelete='CASCADE',
-    ),
-    db.Index(
-        'idx_prepared_operator_transaction_prepared_transfer_seqnum',
-        'debtor_id',
-        'prepared_transfer_seqnum',
-        unique=True,
-    ),
-)

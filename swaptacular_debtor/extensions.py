@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 
 warnings.filterwarnings(
     'ignore',
-    "relationship '\w+\.\w+' will copy column \w+\.debtor_id",
+    "relationship '\w+\.\w+' will copy column \w+\.(debtor_id|creditor_id)",
     SAWarning,
 )
 
