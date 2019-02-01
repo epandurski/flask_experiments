@@ -105,9 +105,9 @@ class Account(DebtorModel):
     )
 
 
-class TradingTurn(DebtorModel):
+class Coordinator(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
-    trading_turn_id = db.Column(db.BigInteger, primary_key=True)
+    coordinator_id = db.Column(db.BigInteger, primary_key=True)
 
 
 class PreparedTransfer(DebtorModel):
@@ -118,12 +118,12 @@ class PreparedTransfer(DebtorModel):
     transfer_type = db.Column(
         db.SmallInteger,
         nullable=False,
-        comment='1 -- trading turn transfer, 2 -- withdrawal, 3 -- deposit',
+        comment='1 -- circular transfer, 2 -- withdrawal, 3 -- deposit',
     )
     amount = db.Column(db.BigInteger, nullable=False)
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
-    trading_turn_id = db.Column(db.BigInteger)
+    coordinator_id = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'sender_creditor_id'],
@@ -131,21 +131,20 @@ class PreparedTransfer(DebtorModel):
             ondelete='CASCADE',
         ),
         db.ForeignKeyConstraint(
-            ['debtor_id', 'trading_turn_id'],
-            ['trading_turn.debtor_id', 'trading_turn.trading_turn_id'],
-            ondelete='CASCADE',
+            ['debtor_id', 'coordinator_id'],
+            ['coordinator.debtor_id', 'coordinator.coordinator_id'],
         ),
         db.Index('idx_prepared_transfer_sender_creditor_id', 'debtor_id', 'sender_creditor_id'),
         db.Index(
-            'idx_prepared_transfer_trading_turn_id',
+            'idx_prepared_transfer_coordinator_id',
             'debtor_id',
-            'trading_turn_id',
-            postgresql_where=db.text('trading_turn_id IS NOT NULL'),
+            'coordinator_id',
+            postgresql_where=db.text('coordinator_id IS NOT NULL'),
         ),
         db.CheckConstraint('amount >= 0'),
         db.CheckConstraint('sender_locked_amount >= 0'),
         db.CheckConstraint(
-            '(transfer_type!=1 AND trading_turn_id IS NULL) OR (transfer_type=1 AND trading_turn_id IS NOT NULL)',
+            '(transfer_type!=1 AND coordinator_id IS NULL) OR (transfer_type=1 AND coordinator_id IS NOT NULL)',
         ),
     )
 
@@ -153,9 +152,9 @@ class PreparedTransfer(DebtorModel):
         'Account',
         backref=db.backref('prepared_transfer_list', cascade='all, delete-orphan', passive_deletes=True),
     )
-    trading_turn = db.relationship(
-        'TradingTurn',
-        backref=db.backref('prepared_transfer_list', cascade='all', passive_deletes=True),
+    coordinator = db.relationship(
+        'Coordinator',
+        backref=db.backref('prepared_transfer_list'),
     )
 
 

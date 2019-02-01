@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: d9933fbcfb62
+Revision ID: ae7091cfdfa9
 Revises: 
-Create Date: 2019-01-31 16:30:24.926912
+Create Date: 2019-02-01 14:48:18.499106
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'd9933fbcfb62'
+revision = 'ae7091cfdfa9'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -41,6 +41,7 @@ def upgrade():
     sa.Column('balance', sa.BigInteger(), nullable=False, comment='The total owed amount'),
     sa.Column('demurrage', sa.BigInteger(), nullable=False, comment='This is the amount of negative interest accumulated on the account. Demurrage accumulates at an annual rate (in percents) that is equal to the minimum of the following values: `account.discount_demurrage_rate`, `debtor.demurrage_rate`, `debtor.demurrage_rate_ceiling`.'),
     sa.Column('avl_balance', sa.BigInteger(), nullable=False, comment='The total owed amount, minus demurrage, minus pending transfer locks'),
+    sa.Column('last_transfer_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.CheckConstraint('demurrage >= 0'),
     sa.CheckConstraint('discount_demurrage_rate >= 0'),
     sa.ForeignKeyConstraint(['debtor_id'], ['debtor.debtor_id'], ),
@@ -53,11 +54,11 @@ def upgrade():
     sa.ForeignKeyConstraint(['debtor_id'], ['debtor.debtor_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'branch_id')
     )
-    op.create_table('trading_turn',
+    op.create_table('coordinator',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
-    sa.Column('trading_turn_id', sa.BigInteger(), nullable=False),
+    sa.Column('coordinator_id', sa.BigInteger(), nullable=False),
     sa.ForeignKeyConstraint(['debtor_id'], ['debtor.debtor_id'], ),
-    sa.PrimaryKeyConstraint('debtor_id', 'trading_turn_id')
+    sa.PrimaryKeyConstraint('debtor_id', 'coordinator_id')
     )
     op.create_table('operator',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
@@ -76,19 +77,20 @@ def upgrade():
     sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('sender_creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('recipient_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- trading turn transfer, 2 -- withdrawal, 3 -- deposit'),
+    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- withdrawal, 3 -- deposit'),
     sa.Column('amount', sa.BigInteger(), nullable=False),
     sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
-    sa.Column('trading_turn_id', sa.BigInteger(), nullable=True),
-    sa.CheckConstraint('(transfer_type!=1 AND trading_turn_id IS NULL) OR (transfer_type=1 AND trading_turn_id IS NOT NULL)'),
+    sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),
+    sa.Column('coordinator_id', sa.BigInteger(), nullable=True),
+    sa.CheckConstraint('(transfer_type!=1 AND coordinator_id IS NULL) OR (transfer_type=1 AND coordinator_id IS NOT NULL)'),
     sa.CheckConstraint('amount >= 0'),
     sa.CheckConstraint('sender_locked_amount >= 0'),
+    sa.ForeignKeyConstraint(['debtor_id', 'coordinator_id'], ['coordinator.debtor_id', 'coordinator.coordinator_id'], ),
     sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['debtor_id', 'trading_turn_id'], ['trading_turn.debtor_id', 'trading_turn.trading_turn_id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('debtor_id', 'prepared_transfer_seqnum')
     )
+    op.create_index('idx_prepared_transfer_coordinator_id', 'prepared_transfer', ['debtor_id', 'coordinator_id'], unique=False, postgresql_where=sa.text('coordinator_id IS NOT NULL'))
     op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id'], unique=False)
-    op.create_index('idx_prepared_transfer_trading_turn_id', 'prepared_transfer', ['debtor_id', 'trading_turn_id'], unique=False, postgresql_where=sa.text('trading_turn_id IS NOT NULL'))
     op.create_table('operator_transaction',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
@@ -137,11 +139,11 @@ def downgrade():
     op.drop_table('operator_transaction_request')
     op.drop_index('idx_operator_transaction_closing_ts', table_name='operator_transaction')
     op.drop_table('operator_transaction')
-    op.drop_index('idx_prepared_transfer_trading_turn_id', table_name='prepared_transfer')
     op.drop_index('idx_prepared_transfer_sender_creditor_id', table_name='prepared_transfer')
+    op.drop_index('idx_prepared_transfer_coordinator_id', table_name='prepared_transfer')
     op.drop_table('prepared_transfer')
     op.drop_table('operator')
-    op.drop_table('trading_turn')
+    op.drop_table('coordinator')
     op.drop_table('branch')
     op.drop_table('account')
     op.drop_table('debtor')
