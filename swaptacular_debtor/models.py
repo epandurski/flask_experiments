@@ -113,7 +113,7 @@ class PreparedTransfer(DebtorModel):
     transfer_type = db.Column(
         db.SmallInteger,
         nullable=False,
-        comment='1 -- circular transfer, 2 -- withdrawal, 3 -- deposit',
+        comment='1 -- circular transfer, 2 -- operator transaction, 3 -- direct transfer',
     )
     amount = db.Column(db.BigInteger, nullable=False)
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
