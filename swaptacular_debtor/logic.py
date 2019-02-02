@@ -42,7 +42,7 @@ def prepare_transfer(debtor_id, sender_creditor_id, recipient_creditor_id, trans
             sender_creditor_id=sender_creditor_id,
         ).with_for_update().one()
         avl_balance = sender_account.avl_balance
-        if transfer_type == PreparedTransfer.TYPE_OPERATOR_TRANSACTION:
+        if transfer_type == PreparedTransfer.TYPE_OPERATOR:
             avl_balance += sender_account.demurrage
         if avl_balance < amount:
             raise RuntimeError('Insufficient funds')
@@ -59,3 +59,47 @@ def prepare_transfer(debtor_id, sender_creditor_id, recipient_creditor_id, trans
         **kw,
     )
     db.session.add(transfer)
+
+
+def prepare_operator_transaction(debtor_id, sender_creditor_id, recipient_creditor_id,
+                                 amount, operator_transaction_request_seqnum):
+    return prepare_transfer(
+        debtor_id,
+        sender_creditor_id,
+        recipient_creditor_id,
+        amount,
+        operator_transaction_request_seqnum=operator_transaction_request_seqnum
+    )
+
+
+def coordinator_commit_prepared_transfer(coordinator_id, debtor_id, prepared_transfer_seqnum):
+    """Commit circular transactions."""
+
+    transfer = PreparedTransfer.query.get((debtor_id, prepared_transfer_seqnum))
+    if transfer:
+        assert transfer.coordinator_id == coordinator_id
+
+
+def creditor_commit_prepared_transfer(creditor_id, debtor_id, prepared_transfer_seqnum):
+    """Commit direct transfers and withdrawals from creditors' accounts."""
+
+    transfer = PreparedTransfer.query.get((debtor_id, prepared_transfer_seqnum))
+    if transfer:
+        assert transfer.sender_creditor_id == creditor_id and transfer.transfer_type in [
+            PreparedTransfer.TYPE_OPERATOR,
+            PreparedTransfer.TYPE_DIRECT,
+        ]
+
+
+def debtor_commit_prepared_transfer(debtor_id, prepared_transfer_seqnum):
+    """Commit deposits to creditors' accounts."""
+
+    transfer = PreparedTransfer.query.get((debtor_id, prepared_transfer_seqnum))
+    if transfer:
+        assert transfer.sender_creditor_id == ROOT_CREDITOR_ID and transfer.transfer_type in [
+            PreparedTransfer.TYPE_OPERATOR,
+        ]
+
+
+def guarantor_commit_prepared_transfer(debtor_id, prepared_transfer_seqnum):
+    pass

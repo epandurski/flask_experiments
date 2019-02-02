@@ -110,9 +110,10 @@ class Account(DebtorModel):
 
 
 class PreparedTransfer(DebtorModel):
-    TYPE_CIRCULAR_TRANSACTION = 1
-    TYPE_OPERATOR_TRANSACTION = 2
-    TYPE_DIRECT_TRANSFER = 3
+    TYPE_CIRCULAR = 1
+    TYPE_OPERATOR = 2
+    TYPE_GUARANTOR = 3
+    TYPE_DIRECT = 4
 
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
@@ -122,9 +123,10 @@ class PreparedTransfer(DebtorModel):
         db.SmallInteger,
         nullable=False,
         comment=(
-            f'{TYPE_CIRCULAR_TRANSACTION} -- circular transaction, '
-            f'{TYPE_OPERATOR_TRANSACTION} -- operator transaction, '
-            f'{TYPE_DIRECT_TRANSFER} -- direct transfer '
+            f'{TYPE_CIRCULAR} -- circular transfer, '
+            f'{TYPE_OPERATOR} -- operator transfer, '
+            f'{TYPE_GUARANTOR} -- guarantor transfer, '
+            f'{TYPE_DIRECT} -- direct transfer '
         ),
     )
     amount = db.Column(db.BigInteger, nullable=False)
@@ -156,14 +158,8 @@ class PreparedTransfer(DebtorModel):
         db.Index('idx_prepared_transfer_sender_creditor_id', debtor_id, sender_creditor_id),
         db.CheckConstraint(amount >= 0),
         db.CheckConstraint(sender_locked_amount >= 0),
-        db.CheckConstraint(xor_(
-            transfer_type == TYPE_CIRCULAR_TRANSACTION,
-            coordinator_id == null()
-        )),
-        db.CheckConstraint(xor_(
-            transfer_type == TYPE_OPERATOR_TRANSACTION,
-            operator_transaction_request_seqnum == null()
-        )),
+        db.CheckConstraint(xor_(transfer_type == TYPE_CIRCULAR, coordinator_id == null())),
+        db.CheckConstraint(xor_(transfer_type == TYPE_OPERATOR, operator_transaction_request_seqnum == null())),
     )
 
     sender_account = db.relationship(
