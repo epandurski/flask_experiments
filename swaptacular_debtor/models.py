@@ -5,7 +5,7 @@ import math
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
-from sqlalchemy.sql.expression import and_
+from sqlalchemy.sql.expression import and_, null
 from .extensions import db
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
@@ -13,6 +13,10 @@ BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.ti
 
 def get_now_utc():
     return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def xor_(expr1, expr2):
+    return expr1 & ~expr2 | ~expr1 & expr2
 
 
 class ShardingKey(db.Model):
@@ -56,8 +60,8 @@ class Debtor(db.Model):
     demurrage_rate = db.Column(db.REAL, nullable=False, default=0.0)
     demurrage_rate_ceiling = db.Column(db.REAL, nullable=False, default=0.0)
     __table_args__ = (
-        db.CheckConstraint('demurrage_rate >= 0'),
-        db.CheckConstraint('demurrage_rate_ceiling >= 0'),
+        db.CheckConstraint(demurrage_rate >= 0),
+        db.CheckConstraint(demurrage_rate_ceiling >= 0),
     )
 
 
@@ -100,8 +104,8 @@ class Account(DebtorModel):
     )
     last_transfer_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=BEGINNING_OF_TIME)
     __table_args__ = (
-        db.CheckConstraint('demurrage >= 0'),
-        db.CheckConstraint('discount_demurrage_rate >= 0'),
+        db.CheckConstraint(demurrage >= 0),
+        db.CheckConstraint(discount_demurrage_rate >= 0),
     )
 
 
@@ -120,7 +124,7 @@ class PreparedTransfer(DebtorModel):
         comment=(
             f'{TYPE_CIRCULAR_TRANSACTION} -- circular transaction, '
             f'{TYPE_OPERATOR_TRANSACTION} -- operator transaction, '
-            f'{TYPE_DIRECT_TRANSFER} -- direct transfer'
+            f'{TYPE_DIRECT_TRANSFER} -- direct transfer '
         ),
     )
     amount = db.Column(db.BigInteger, nullable=False)
@@ -149,17 +153,17 @@ class PreparedTransfer(DebtorModel):
                 'operator_transaction_request.operator_transaction_request_seqnum',
             ],
         ),
-        db.Index('idx_prepared_transfer_sender_creditor_id', 'debtor_id', 'sender_creditor_id'),
-        db.CheckConstraint('amount >= 0'),
-        db.CheckConstraint('sender_locked_amount >= 0'),
-        db.CheckConstraint(
-            f'(transfer_type!={TYPE_CIRCULAR_TRANSACTION} AND coordinator_id IS NULL) OR '
-            f'(transfer_type={TYPE_CIRCULAR_TRANSACTION} AND coordinator_id IS NOT NULL)',
-        ),
-        db.CheckConstraint(
-            f'(transfer_type!={TYPE_OPERATOR_TRANSACTION} AND operator_transaction_request_seqnum IS NULL) OR '
-            f'(transfer_type={TYPE_OPERATOR_TRANSACTION} AND operator_transaction_request_seqnum IS NOT NULL)',
-        ),
+        db.Index('idx_prepared_transfer_sender_creditor_id', debtor_id, sender_creditor_id),
+        db.CheckConstraint(amount >= 0),
+        db.CheckConstraint(sender_locked_amount >= 0),
+        db.CheckConstraint(xor_(
+            transfer_type == TYPE_CIRCULAR_TRANSACTION,
+            coordinator_id == null()
+        )),
+        db.CheckConstraint(xor_(
+            transfer_type == TYPE_OPERATOR_TRANSACTION,
+            operator_transaction_request_seqnum == null()
+        )),
     )
 
     sender_account = db.relationship(
