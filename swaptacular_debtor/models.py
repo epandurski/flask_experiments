@@ -134,6 +134,7 @@ class PreparedTransfer(DebtorModel):
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     coordinator_id = db.Column(db.Integer)
     operator_transaction_request_seqnum = db.Column(db.BigInteger)
+    guarantor_transfer_amount = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'sender_creditor_id'],
@@ -158,8 +159,10 @@ class PreparedTransfer(DebtorModel):
         db.Index('idx_prepared_transfer_sender_creditor_id', debtor_id, sender_creditor_id),
         db.CheckConstraint(amount >= 0),
         db.CheckConstraint(sender_locked_amount >= 0),
+        db.CheckConstraint(guarantor_transfer_amount >= 0),
         db.CheckConstraint(xor_(transfer_type == TYPE_CIRCULAR, coordinator_id == null())),
         db.CheckConstraint(xor_(transfer_type == TYPE_OPERATOR, operator_transaction_request_seqnum == null())),
+        db.CheckConstraint(xor_(transfer_type == TYPE_GUARANTOR, guarantor_transfer_amount == null())),
     )
 
     sender_account = db.relationship(

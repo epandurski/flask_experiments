@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: c156b4442189
+Revision ID: 9e62208a3bdb
 Revises: 
-Create Date: 2019-02-02 15:10:47.339179
+Create Date: 2019-02-02 16:44:23.924997
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'c156b4442189'
+revision = '9e62208a3bdb'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -105,16 +105,19 @@ def upgrade():
     sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('sender_creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('recipient_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transaction, 2 -- operator transaction, 3 -- direct transfer '),
+    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- operator transfer, 3 -- guarantor transfer, 4 -- direct transfer '),
     sa.Column('amount', sa.BigInteger(), nullable=False),
     sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
     sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('coordinator_id', sa.Integer(), nullable=True),
     sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), nullable=True),
+    sa.Column('guarantor_transfer_amount', sa.BigInteger(), nullable=True),
     sa.CheckConstraint('amount >= 0'),
+    sa.CheckConstraint('guarantor_transfer_amount >= 0'),
     sa.CheckConstraint('sender_locked_amount >= 0'),
     sa.CheckConstraint('transfer_type = 1 AND coordinator_id IS NOT NULL OR transfer_type != 1 AND coordinator_id IS NULL'),
     sa.CheckConstraint('transfer_type = 2 AND operator_transaction_request_seqnum IS NOT NULL OR transfer_type != 2 AND operator_transaction_request_seqnum IS NULL'),
+    sa.CheckConstraint('transfer_type = 3 AND guarantor_transfer_amount IS NOT NULL OR transfer_type != 3 AND guarantor_transfer_amount IS NULL'),
     sa.ForeignKeyConstraint(['debtor_id', 'coordinator_id'], ['coordinator.debtor_id', 'coordinator.coordinator_id'], ),
     sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id', 'operator_transaction_request_seqnum'], ['operator_transaction_request.debtor_id', 'operator_transaction_request.creditor_id', 'operator_transaction_request.operator_transaction_request_seqnum'], ),
     sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ),
