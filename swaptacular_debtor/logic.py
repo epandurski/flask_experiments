@@ -102,4 +102,10 @@ def debtor_commit_prepared_transfer(debtor_id, prepared_transfer_seqnum):
 
 
 def guarantor_commit_prepared_transfer(debtor_id, prepared_transfer_seqnum):
-    pass
+    """Commit guarantor transfers to creditors' accounts."""
+
+    transfer = PreparedTransfer.query.get((debtor_id, prepared_transfer_seqnum))
+    if transfer:
+        assert transfer.transfer_type in [
+            PreparedTransfer.TYPE_GUARANTOR,
+        ]
