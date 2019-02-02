@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: ec245fb44c7c
+Revision ID: dfeb4b1f0b7c
 Revises: 
-Create Date: 2019-02-01 20:16:49.227304
+Create Date: 2019-02-02 14:14:54.321516
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'ec245fb44c7c'
+revision = 'dfeb4b1f0b7c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -105,7 +105,7 @@ def upgrade():
     sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('sender_creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('recipient_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- withdrawal, 3 -- deposit'),
+    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transaction, 2 -- operator transaction, 3 -- direct transfer'),
     sa.Column('amount', sa.BigInteger(), nullable=False),
     sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
     sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),

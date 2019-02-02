@@ -106,6 +106,10 @@ class Account(DebtorModel):
 
 
 class PreparedTransfer(DebtorModel):
+    TYPE_CIRCULAR_TRANSACTION = 1
+    TYPE_OPERATOR_TRANSACTION = 2
+    TYPE_DIRECT_TRANSFER = 3
+
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     sender_creditor_id = db.Column(db.BigInteger, nullable=False)
@@ -113,7 +117,11 @@ class PreparedTransfer(DebtorModel):
     transfer_type = db.Column(
         db.SmallInteger,
         nullable=False,
-        comment='1 -- circular transfer, 2 -- operator transaction, 3 -- direct transfer',
+        comment=(
+            f'{TYPE_CIRCULAR_TRANSACTION} -- circular transaction, '
+            f'{TYPE_OPERATOR_TRANSACTION} -- operator transaction, '
+            f'{TYPE_DIRECT_TRANSFER} -- direct transfer'
+        ),
     )
     amount = db.Column(db.BigInteger, nullable=False)
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
@@ -145,12 +153,12 @@ class PreparedTransfer(DebtorModel):
         db.CheckConstraint('amount >= 0'),
         db.CheckConstraint('sender_locked_amount >= 0'),
         db.CheckConstraint(
-            '(transfer_type!=1 AND coordinator_id IS NULL) OR '
-            '(transfer_type=1 AND coordinator_id IS NOT NULL)',
+            f'(transfer_type!={TYPE_CIRCULAR_TRANSACTION} AND coordinator_id IS NULL) OR '
+            f'(transfer_type={TYPE_CIRCULAR_TRANSACTION} AND coordinator_id IS NOT NULL)',
         ),
         db.CheckConstraint(
-            '(transfer_type!=2 AND operator_transaction_request_seqnum IS NULL) OR '
-            '(transfer_type=2 AND operator_transaction_request_seqnum IS NOT NULL)',
+            f'(transfer_type!={TYPE_OPERATOR_TRANSACTION} AND operator_transaction_request_seqnum IS NULL) OR '
+            f'(transfer_type={TYPE_OPERATOR_TRANSACTION} AND operator_transaction_request_seqnum IS NOT NULL)',
         ),
     )
 
