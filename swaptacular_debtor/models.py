@@ -20,7 +20,7 @@ def xor_(expr1, expr2):
     return expr1 & ~expr2 | ~expr1 & expr2
 
 
-class ModelUtilityMixin:
+class ModelUtilitiesMixin:
     @classmethod
     def _get_instance(cls, instance_or_pk):
         """Return an instance in `db.session` when given any instance or a primary key."""
@@ -30,6 +30,18 @@ class ModelUtilityMixin:
                 return instance_or_pk
             instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
         return cls.query.get(instance_or_pk)
+
+    @classmethod
+    def _lock_instance(cls, instance_or_pk, read=False):
+        """Return a locked instance in `db.session` when given any instance or a primary key."""
+
+        if isinstance(instance_or_pk, cls):
+            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
+        mapper = inspect(cls)
+        pk_attrs = [mapper.get_property_by_column(c).class_attribute for c in mapper.primary_key]
+        pk_values = instance_or_pk if isinstance(instance_or_pk, tuple) else (instance_or_pk,)
+        clause = and_(*[attr == value for attr, value in zip(pk_attrs, pk_values)])
+        return cls.query.filter(clause).with_for_update(read=read).one_or_none()
 
 
 class ShardingKey(db.Model):
@@ -65,7 +77,7 @@ class ShardingKey(db.Model):
         raise RuntimeError('Can not generate a unique sharding key.')
 
 
-class Debtor(ModelUtilityMixin, db.Model):
+class Debtor(ModelUtilitiesMixin, db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.sharding_key_value'), primary_key=True)
     guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
@@ -78,7 +90,7 @@ class Debtor(ModelUtilityMixin, db.Model):
     )
 
 
-class DebtorModel(ModelUtilityMixin, db.Model):
+class DebtorModel(ModelUtilitiesMixin, db.Model):
     __abstract__ = True
 
     @declared_attr

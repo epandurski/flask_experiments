@@ -120,3 +120,17 @@ def test_get_instance(db_session):
     assert Debtor._get_instance(pk) in db_session
     assert Debtor._get_instance((pk,)) in db_session
     assert Debtor._get_instance(d) in db_session
+
+
+def test_lock_instance(db_session):
+    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    assert d not in db_session
+    assert Debtor._lock_instance(d) is None
+    db_session.add(d)
+    assert Debtor._lock_instance(d) is d
+    assert d in db_session
+    pk = d.debtor_id
+    db_session.commit()
+    assert Debtor._lock_instance(pk) in db_session
+    assert Debtor._lock_instance((pk,)) in db_session
+    assert Debtor._lock_instance(d) in db_session
