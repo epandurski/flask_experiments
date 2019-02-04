@@ -106,3 +106,17 @@ def test_create_transactions(db_session):
     assert inspect(t).deleted
     db_session.commit()
     assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().operator_transaction_list) == 1
+
+
+def test_get_instance(db_session):
+    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    assert d not in db_session
+    assert Debtor._get_instance(d) is None
+    db_session.add(d)
+    assert Debtor._get_instance(d) is d
+    assert d in db_session
+    pk = d.debtor_id
+    db_session.commit()
+    assert Debtor._get_instance(pk) in db_session
+    assert Debtor._get_instance((pk,)) in db_session
+    assert Debtor._get_instance(d) in db_session

@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, null
+from sqlalchemy.inspection import inspect
 from .extensions import db
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
@@ -17,6 +18,18 @@ def get_now_utc():
 
 def xor_(expr1, expr2):
     return expr1 & ~expr2 | ~expr1 & expr2
+
+
+class ModelUtilityMixin:
+    @classmethod
+    def _get_instance(cls, instance_or_pk):
+        """Return an instance in `db.session` when given any instance or a primary key."""
+
+        if isinstance(instance_or_pk, cls):
+            if instance_or_pk in db.session:
+                return instance_or_pk
+            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
+        return cls.query.get(instance_or_pk)
 
 
 class ShardingKey(db.Model):
@@ -52,7 +65,7 @@ class ShardingKey(db.Model):
         raise RuntimeError('Can not generate a unique sharding key.')
 
 
-class Debtor(db.Model):
+class Debtor(ModelUtilityMixin, db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.sharding_key_value'), primary_key=True)
     guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
@@ -65,7 +78,7 @@ class Debtor(db.Model):
     )
 
 
-class DebtorModel(db.Model):
+class DebtorModel(ModelUtilityMixin, db.Model):
     __abstract__ = True
 
     @declared_attr
