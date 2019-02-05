@@ -134,3 +134,10 @@ def test_lock_instance(db_session):
     assert Debtor._lock_instance(pk) in db_session
     assert Debtor._lock_instance((pk,)) in db_session
     assert Debtor._lock_instance(d) in db_session
+
+
+def test_get_pk_values(db_session):
+    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    assert Debtor._get_pk_values(d) == (d.debtor_id,)
+    assert Debtor._get_pk_values(1) == (1,)
+    assert Debtor._get_pk_values((1,)) == (1,)
