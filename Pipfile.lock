@@ -55,10 +55,10 @@
         },
         "flask-signalbus": {
             "hashes": [
-                "sha256:ff8e4aaf71049fb0fd4a48505c92a714565ded96903f9482bd34298fe782d109"
+                "sha256:ae4c74f16e3f8cb84ad6c3b98cdf9a37650f11267634cce8e845cb0c8418ab01"
             ],
             "index": "pypi",
-            "version": "==0.3.5"
+            "version": "==0.3.6"
         },
         "flask-sqlalchemy": {
             "hashes": [

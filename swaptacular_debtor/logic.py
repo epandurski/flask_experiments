@@ -1,9 +1,44 @@
+from contextlib import contextmanager
+from flask_signalbus import DBSerializationError, retry_on_deadlock
+from sqlalchemy.exc import IntegrityError
 from .extensions import db
 from .models import ShardingKey, Debtor, Account, Coordinator, Branch, PreparedTransfer
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
 DEFAULT_BRANCH_ID = 1
+
+IN_TRANSACTION_SESSION_INFO_FLAG = 'app_logic__in_transaction_flag'
+
+
+@contextmanager
+def retry_on_integrity_error():
+    assert_in_transaction()
+    db.session.flush()
+    try:
+        yield
+        db.session.flush()
+    except IntegrityError:
+        raise DBSerializationError
+
+
+def assert_in_transaction():
+    assert db.session.info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
+        'must be wrapped in "execute_transaction"'
+
+
+def execute_transaction(__func__, *args, **kwargs):
+    session = db.session
+    assert not session.info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
+        '"execute_transaction" can not be called recursively'
+    session.info[IN_TRANSACTION_SESSION_INFO_FLAG] = True
+    try:
+        retry_on_db_serialization_errors = retry_on_deadlock(session)
+        result = retry_on_db_serialization_errors(__func__)(*args, **kwargs)
+        session.commit()
+        return result
+    finally:
+        session.info[IN_TRANSACTION_SESSION_INFO_FLAG] = False
 
 
 def create_debtor(**kw):
