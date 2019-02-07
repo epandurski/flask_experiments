@@ -1,3 +1,5 @@
+import os
+import struct
 from contextlib import contextmanager
 from flask_signalbus import DBSerializationError, retry_on_deadlock
 from sqlalchemy.exc import IntegrityError
@@ -36,6 +38,31 @@ class ModelUtilitiesMixin:
         if isinstance(instance_or_pk, cls):
             instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
         return instance_or_pk if isinstance(instance_or_pk, tuple) else (instance_or_pk,)
+
+
+class ShardingKeyGenerationMixin:
+    def __init__(self, sharding_key_value=None):
+        modulo = 1 << 63
+        if sharding_key_value is None:
+            sharding_key_value = struct.unpack('>q', os.urandom(8))[0] % modulo or 1
+        assert 0 < sharding_key_value < modulo
+        self.sharding_key_value = sharding_key_value
+
+    @classmethod
+    def generate(cls, *, sharding_key_value=None, tries=50):
+        """Create a unique instance and return its `sharding_key_value`."""
+
+        for _ in range(tries):
+            instance = cls(sharding_key_value=sharding_key_value)
+            db.session.begin_nested()
+            db.session.add(instance)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                continue
+            return instance.sharding_key_value
+        raise RuntimeError('Can not generate a unique sharding key.')
 
 
 def execute_transaction(__func__, *args, **kwargs):

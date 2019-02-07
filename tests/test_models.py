@@ -7,8 +7,6 @@ from swaptacular_debtor.models import ShardingKey, Debtor, Account, Branch, Oper
 
 def test_create_sharding_key():
     assert ShardingKey()
-    assert ShardingKey(shard_id=0).sharding_key_value < (1 << 40)
-    assert ShardingKey(shard_id=666).sharding_key_value >> 40 == 666
 
 
 @pytest.mark.models
@@ -20,7 +18,7 @@ def test_generate_sharding_key(db_session):
     assert all_keys[0].sharding_key_value == k
     db_session.expunge_all()
     with pytest.raises(RuntimeError):
-        ShardingKey.generate(seqnum=k, tries=2)
+        ShardingKey.generate(sharding_key_value=k, tries=2)
 
 
 @pytest.mark.models

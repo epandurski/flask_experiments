@@ -1,13 +1,10 @@
-import os
-import struct
 import datetime
 import math
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, null
 from .extensions import db
-from .db_tools import ModelUtilitiesMixin
+from .db_tools import ModelUtilitiesMixin, ShardingKeyGenerationMixin
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
 
@@ -20,37 +17,8 @@ def xor_(expr1, expr2):
     return expr1 & ~expr2 | ~expr1 & expr2
 
 
-class ShardingKey(db.Model):
+class ShardingKey(ShardingKeyGenerationMixin, db.Model):
     sharding_key_value = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
-
-    def __init__(self, shard_id=None, seqnum=None):
-        if shard_id is None:
-            shard_id = self.get_defalut_shard_id()
-        assert shard_id < (1 << 24)
-        if seqnum is None:
-            seqnum = struct.unpack('>Q', b'\0\0\0' + os.urandom(5))[0]
-        assert seqnum < (1 << 40)
-        self.sharding_key_value = (shard_id << 40) + seqnum
-
-    @staticmethod
-    def get_defalut_shard_id():
-        return 0
-
-    @classmethod
-    def generate(cls, *, tries=50, shard_id=None, seqnum=None):
-        """Create a unique instance and return its `sharding_key_value`."""
-
-        for _ in range(tries):
-            instance = cls(shard_id, seqnum)
-            db.session.begin_nested()
-            db.session.add(instance)
-            try:
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
-                continue
-            return instance.sharding_key_value
-        raise RuntimeError('Can not generate a unique sharding key.')
 
 
 class Debtor(ModelUtilitiesMixin, db.Model):
