@@ -1,7 +1,7 @@
 import pytest
 from flask_signalbus import DBSerializationError
 from swaptacular_debtor.models import ShardingKey, Debtor
-from swaptacular_debtor.logic import execute_transaction, retry_on_integrity_error
+from swaptacular_debtor.db_tools import execute_transaction, retry_on_integrity_error
 
 
 def test_commit_transaction(db_session, mocker):

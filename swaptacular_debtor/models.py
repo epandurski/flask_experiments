@@ -6,8 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, null
-from sqlalchemy.inspection import inspect
 from .extensions import db
+from .db_tools import ModelUtilitiesMixin
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
 
@@ -18,36 +18,6 @@ def get_now_utc():
 
 def xor_(expr1, expr2):
     return expr1 & ~expr2 | ~expr1 & expr2
-
-
-class ModelUtilitiesMixin:
-    @classmethod
-    def _get_instance(cls, instance_or_pk):
-        """Return an instance in `db.session` when given any instance or a primary key."""
-
-        if isinstance(instance_or_pk, cls):
-            if instance_or_pk in db.session:
-                return instance_or_pk
-            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
-        return cls.query.get(instance_or_pk)
-
-    @classmethod
-    def _lock_instance(cls, instance_or_pk, read=False):
-        """Return a locked instance in `db.session` when given any instance or a primary key."""
-
-        mapper = inspect(cls)
-        pk_attrs = [mapper.get_property_by_column(c).class_attribute for c in mapper.primary_key]
-        pk_values = cls._get_pk_values(instance_or_pk)
-        clause = and_(*[attr == value for attr, value in zip(pk_attrs, pk_values)])
-        return cls.query.filter(clause).with_for_update(read=read).one_or_none()
-
-    @classmethod
-    def _get_pk_values(cls, instance_or_pk):
-        """Return a primary key as a tuple when given any instance or primary key."""
-
-        if isinstance(instance_or_pk, cls):
-            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
-        return instance_or_pk if isinstance(instance_or_pk, tuple) else (instance_or_pk,)
 
 
 class ShardingKey(db.Model):
