@@ -41,6 +41,14 @@ class ModelUtilitiesMixin:
 
 
 class ShardingKeyGenerationMixin:
+    """Adds sharding key generation functionality to a model.
+
+    The model should be defined as follows::
+
+      class SomeModelName(ShardingKeyGenerationMixin, db.Model):
+          sharding_key_value = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
+    """
+
     def __init__(self, sharding_key_value=None):
         modulo = 1 << 63
         if sharding_key_value is None:
