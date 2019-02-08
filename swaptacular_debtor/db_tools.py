@@ -81,7 +81,7 @@ def execute_atomic(__func__, *args, **kwargs):
 
       @execute_atomic
       def result():
-          write_to_db()
+          write_to_db('a message')
           return 'OK'
 
       assert result == 'OK'
@@ -98,6 +98,12 @@ def execute_atomic(__func__, *args, **kwargs):
     2. If a transaction serialization error occurs during the
        execution of the function, the function will re-executed.
        (This may happen several times.)
+
+    Note: `execute_atomic` can be called with more that one
+    argument. The extra arguments will be passed to the function given
+    as a first argument. For example::
+
+      result = execute_atomic(write_to_db, 'a message')
 
     """
 
@@ -119,7 +125,12 @@ def execute_atomic(__func__, *args, **kwargs):
 
 
 def assert_atomic(func):
-    """Raise assertion error if `func` is called outside of atomic block."""
+    """Raise assertion error if `func` is called outside of atomic block.
+
+    This is mainly useful to prevent accidental use of a function that
+    writes to the database outside of an atomic block.
+
+    """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -150,6 +161,7 @@ def retry_on_integrity_error():
     this time our prior-to-INSERT check will correctly detect a
     primary key collision.
 
+    Note: `retry_on_integrity_error()` triggers a session flush.
     """
 
     session = db.session
