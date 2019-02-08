@@ -75,10 +75,36 @@ class ShardingKeyGenerationMixin:
 
 
 def execute_atomic(__func__, *args, **kwargs):
+    """A decorator that executes a function in an atomic block.
+
+    For example::
+
+      @execute_atomic
+      def result():
+          write_to_db()
+          return 'OK'
+
+      assert result == 'OK'
+
+    This code defines *and executes* the function `result` in an
+    atomic block. At the end, the name `result` holds the value
+    returned from the function. Executing functions in an atomic block
+    gives us two guarantees:
+
+    1. The database transaction will be automatically comited if the
+       function returns normally, and automatically rolled back if the
+       function raises exception.
+
+    2. If a transaction serialization error occurs during the
+       execution of the function, the function will re-executed.
+       (This may happen several times.)
+
+    """
+
     session = db.session
     session_info = session.info
     assert not session_info.get(SESSION_INFO_ATOMIC_FLAG), \
-        '"execute_atomic" must not be called recursively'
+        '"execute_atomic" calls can not be nested'
     func = retry_on_deadlock(session)(__func__)
     session_info[SESSION_INFO_ATOMIC_FLAG] = True
     try:
@@ -93,6 +119,8 @@ def execute_atomic(__func__, *args, **kwargs):
 
 
 def assert_atomic(func):
+    """Raise assertion error if `func` is called outside of atomic block."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         assert db.session.info.get(SESSION_INFO_ATOMIC_FLAG), \
@@ -105,6 +133,25 @@ def assert_atomic(func):
 @assert_atomic
 @contextmanager
 def retry_on_integrity_error():
+    """Re-raise `IntegrityError` as `DBSerializationError`.
+
+    This is mainly useful to handle race conditions in atomic
+    blocks. For example, even if prior to INSERT we verify that there
+    is no existing row with the given primary key, we still may get an
+    `IntegrityError` if another transaction have insterted it in the
+    meantime. But if we do::
+
+      with retry_on_integrity_error():
+          db.session.add(instance)
+
+    then if the before-mentioned race condition occurs,
+    `DBSerializationError` will be raised instead of `IntegrityError`,
+    so that the transaction will be retried (by the atomic block), and
+    this time our prior-to-INSERT check will correctly detect a
+    primary key collision.
+
+    """
+
     session = db.session
     session.flush()
     try:
