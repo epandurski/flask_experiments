@@ -7,8 +7,8 @@ DEFAULT_COORINATOR_ID = 1
 DEFAULT_BRANCH_ID = 1
 
 
+@assert_in_transaction
 def create_debtor(**kw):
-    assert_in_transaction()
     debtor = Debtor(debtor_id=ShardingKey.generate(), **kw)
     root_account = Account(
         debtor=debtor,

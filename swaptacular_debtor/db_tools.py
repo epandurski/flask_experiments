@@ -1,5 +1,6 @@
 import os
 import struct
+from functools import wraps
 from contextlib import contextmanager
 from flask_signalbus import DBSerializationError, retry_on_deadlock
 from sqlalchemy.exc import IntegrityError
@@ -91,14 +92,19 @@ def execute_transaction(__func__, *args, **kwargs):
         session_info[IN_TRANSACTION_SESSION_INFO_FLAG] = False
 
 
-def assert_in_transaction():
-    assert db.session.info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
-        'must be wrapped in "execute_transaction"'
+def assert_in_transaction(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        assert db.session.info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
+            f'calls to "{func.__name__}" must be wrapped in "execute_transaction"'
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
+@assert_in_transaction
 @contextmanager
 def retry_on_integrity_error():
-    assert_in_transaction()
     session = db.session
     session.flush()
     try:
