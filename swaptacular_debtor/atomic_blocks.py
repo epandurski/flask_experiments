@@ -1,12 +1,51 @@
 from functools import wraps
 from contextlib import contextmanager
-from flask_signalbus import DBSerializationError, retry_on_deadlock
+from sqlalchemy.sql.expression import and_
+from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import IntegrityError
+from flask_signalbus import DBSerializationError, retry_on_deadlock
 
 SESSION_INFO_ATOMIC_FLAG = 'db_tools__atomic_flag'
 
 
+class _ModelUtilitiesMixin:
+    @classmethod
+    def _get_instance(cls, instance_or_pk):
+        """Return an instance in `db.session` when given any instance or a primary key."""
+
+        if isinstance(instance_or_pk, cls):
+            if instance_or_pk in cls._atomic_blocks_sa.session:
+                return instance_or_pk
+            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
+        return cls.query.get(instance_or_pk)
+
+    @classmethod
+    def _lock_instance(cls, instance_or_pk, read=False):
+        """Return a locked instance in `db.session` when given any instance or a primary key."""
+
+        mapper = inspect(cls)
+        pk_attrs = [mapper.get_property_by_column(c).class_attribute for c in mapper.primary_key]
+        pk_values = cls._get_pk_values(instance_or_pk)
+        clause = and_(*[attr == value for attr, value in zip(pk_attrs, pk_values)])
+        return cls.query.filter(clause).with_for_update(read=read).one_or_none()
+
+    @classmethod
+    def _get_pk_values(cls, instance_or_pk):
+        """Return a primary key as a tuple when given any instance or primary key."""
+
+        if isinstance(instance_or_pk, cls):
+            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
+        return instance_or_pk if isinstance(instance_or_pk, tuple) else (instance_or_pk,)
+
+
 class AtomicBlocksMixin:
+
+    def make_declarative_base(self, model, *args, **kwargs):
+        class model(_ModelUtilitiesMixin, model):
+            pass
+        declarative_base = super().make_declarative_base(model, *args, **kwargs)
+        declarative_base._atomic_blocks_sa = self
+        return declarative_base
 
     def execute_atomic(self, __func__, *args, **kwargs):
         """A decorator that executes a function in an atomic block.

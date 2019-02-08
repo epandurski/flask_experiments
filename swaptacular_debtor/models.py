@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, null
 from .extensions import db
-from .db_tools import ModelUtilitiesMixin, ShardingKeyGenerationMixin
+from .db_tools import ShardingKeyGenerationMixin
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
 
@@ -21,7 +21,7 @@ class ShardingKey(ShardingKeyGenerationMixin, db.Model):
     sharding_key_value = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
 
 
-class Debtor(ModelUtilitiesMixin, db.Model):
+class Debtor(db.Model):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.sharding_key_value'), primary_key=True)
     guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
@@ -34,7 +34,7 @@ class Debtor(ModelUtilitiesMixin, db.Model):
     )
 
 
-class DebtorModel(ModelUtilitiesMixin, db.Model):
+class DebtorModel(db.Model):
     __abstract__ = True
 
     @declared_attr
