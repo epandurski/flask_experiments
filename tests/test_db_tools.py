@@ -1,35 +1,35 @@
 import pytest
 from flask_signalbus import DBSerializationError
 from swaptacular_debtor.models import ShardingKey, Debtor
-from swaptacular_debtor.db_tools import execute_transaction, retry_on_integrity_error
+from swaptacular_debtor.db_tools import execute_atomic, retry_on_integrity_error
 
 
-def test_commit_transaction(db_session, mocker):
+def test_execute_atomic(db_session, mocker):
     commit = mocker.patch('swaptacular_debtor.extensions.db.session.commit')
     var = 1
 
     with pytest.raises(RuntimeError):
-        @execute_transaction
+        @execute_atomic
         def f1():
             raise RuntimeError
     commit.assert_not_called()
 
     with pytest.raises(AssertionError):
-        @execute_transaction
+        @execute_atomic
         def f2():
-            @execute_transaction
+            @execute_atomic
             def recursive():
                 pass
     commit.assert_not_called()
 
-    @execute_transaction
+    @execute_atomic
     def f3():
         assert var == 1
         return 666
     commit.assert_called_once()
     assert f3 == 666
 
-    assert execute_transaction(lambda x: x, 777) == 777
+    assert execute_atomic(lambda x: x, 777) == 777
 
 
 def test_retry_on_integrity_error(db_session):
@@ -45,7 +45,7 @@ def test_retry_on_integrity_error(db_session):
             db_session.merge(d)
     assert len(Debtor.query.all()) == 0
 
-    @execute_transaction
+    @execute_atomic
     def t1():
         with retry_on_integrity_error():
             db_session.merge(d)
@@ -53,7 +53,7 @@ def test_retry_on_integrity_error(db_session):
 
     db_session.expunge_all()
     d.guarantor_debtor_id = 2
-    @execute_transaction
+    @execute_atomic
     def t2():
         with retry_on_integrity_error():
             db_session.merge(d)
@@ -76,7 +76,7 @@ def test_retry_on_integrity_error_slow(db_session):
     db_session.expunge_all()
 
     with pytest.raises(DBSerializationError):
-        @execute_transaction
+        @execute_atomic
         def t():
             nonlocal num_called
             with retry_on_integrity_error():

@@ -1,13 +1,13 @@
 from .extensions import db
 from .models import ShardingKey, Debtor, Account, Coordinator, Branch, PreparedTransfer
-from .db_tools import assert_in_transaction
+from .db_tools import assert_atomic
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
 DEFAULT_BRANCH_ID = 1
 
 
-@assert_in_transaction
+@assert_atomic
 def create_debtor(**kw):
     debtor = Debtor(debtor_id=ShardingKey.generate(), **kw)
     root_account = Account(

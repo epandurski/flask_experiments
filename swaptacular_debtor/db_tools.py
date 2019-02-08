@@ -8,7 +8,7 @@ from sqlalchemy.sql.expression import and_
 from sqlalchemy.inspection import inspect
 from .extensions import db
 
-IN_TRANSACTION_SESSION_INFO_FLAG = 'db_tools__in_transaction_flag'
+SESSION_INFO_ATOMIC_FLAG = 'db_tools__atomic_flag'
 
 
 class ModelUtilitiesMixin:
@@ -74,13 +74,13 @@ class ShardingKeyGenerationMixin:
         raise RuntimeError('Can not generate a unique sharding key.')
 
 
-def execute_transaction(__func__, *args, **kwargs):
+def execute_atomic(__func__, *args, **kwargs):
     session = db.session
     session_info = session.info
-    assert not session_info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
-        '"execute_transaction" must not be called recursively'
+    assert not session_info.get(SESSION_INFO_ATOMIC_FLAG), \
+        '"execute_atomic" must not be called recursively'
     func = retry_on_deadlock(session)(__func__)
-    session_info[IN_TRANSACTION_SESSION_INFO_FLAG] = True
+    session_info[SESSION_INFO_ATOMIC_FLAG] = True
     try:
         result = func(*args, **kwargs)
         session.commit()
@@ -89,20 +89,20 @@ def execute_transaction(__func__, *args, **kwargs):
         session.rollback()
         raise
     finally:
-        session_info[IN_TRANSACTION_SESSION_INFO_FLAG] = False
+        session_info[SESSION_INFO_ATOMIC_FLAG] = False
 
 
-def assert_in_transaction(func):
+def assert_atomic(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        assert db.session.info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
-            f'calls to "{func.__name__}" must be wrapped in "execute_transaction"'
+        assert db.session.info.get(SESSION_INFO_ATOMIC_FLAG), \
+            f'calls to "{func.__name__}" must be wrapped in "execute_atomic"'
         return func(*args, **kwargs)
 
     return wrapper
 
 
-@assert_in_transaction
+@assert_atomic
 @contextmanager
 def retry_on_integrity_error():
     session = db.session
