@@ -8,7 +8,7 @@ DEFAULT_BRANCH_ID = 1
 execute_atomic = db.execute_atomic
 
 
-@db.assert_atomic
+@db.modification
 def create_debtor(**kw):
     debtor = Debtor(debtor_id=ShardingKey.generate(), **kw)
     root_account = Account(

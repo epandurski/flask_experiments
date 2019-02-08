@@ -132,11 +132,13 @@ class AtomicBlocksMixin:
         finally:
             session_info[SESSION_INFO_ATOMIC_FLAG] = False
 
-    def assert_atomic(self, func):
+    def modification(self, func):
         """Raise assertion error if `func` is called outside of atomic block.
 
-        This is mainly useful to prevent accidental use of a function that
-        writes to the database outside of an atomic block.
+        It is highly recommended to decorate all functions that write
+        to the database with `db.modification`. This prevents
+        accidental use of a function that writes to the database,
+        outside of an atomic block.
 
         """
 
@@ -169,7 +171,7 @@ class AtomicBlocksMixin:
         Note: `retry_on_integrity_error()` triggers a session flush.
         """
 
-        return self.assert_atomic(_retry_on_integrity_error)(self.session)
+        return self.modification(_retry_on_integrity_error)(self.session)
 
 
 @contextmanager
