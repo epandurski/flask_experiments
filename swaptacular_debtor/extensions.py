@@ -2,8 +2,8 @@ import warnings
 from sqlalchemy.exc import SAWarning
 from flask_sqlalchemy import SQLAlchemy
 from flask_signalbus import SignalBusMixin
+from flask_signalbus.atomic import AtomicProceduresMixin
 from flask_migrate import Migrate
-from .flask_atomic_procedures import AtomicProceduresMixin
 
 
 warnings.filterwarnings(

@@ -8,12 +8,12 @@ python-dotenv = "*"
 pytest = "*"
 pytest-pudb = "*"
 pytest-mock = "*"
+flask-signalbus = {path = "/home/evgeni/src/flask_signalbus", editable = true}
 
 [packages]
 flask = "*"
 flask-migrate = "*"
 "psycopg2-binary" = "*"
-flask-signalbus = "*"
 flask-env = "*"
 
 [requires]
