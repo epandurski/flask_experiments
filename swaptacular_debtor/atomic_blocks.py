@@ -1,3 +1,5 @@
+import os
+import struct
 from functools import wraps
 from contextlib import contextmanager
 from sqlalchemy.sql.expression import and_
@@ -5,7 +7,7 @@ from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import IntegrityError
 from flask_signalbus import DBSerializationError, retry_on_deadlock
 
-SESSION_INFO_ATOMIC_FLAG = 'db_tools__atomic_flag'
+SESSION_INFO_ATOMIC_FLAG = 'atomic_blocks__atomic_flag'
 
 
 class _ModelUtilitiesMixin:
@@ -36,6 +38,40 @@ class _ModelUtilitiesMixin:
         if isinstance(instance_or_pk, cls):
             instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
         return instance_or_pk if isinstance(instance_or_pk, tuple) else (instance_or_pk,)
+
+
+class ShardingKeyGenerationMixin:
+    """Adds sharding key generation functionality to a model.
+
+    The model should be defined as follows::
+
+      class SomeModelName(ShardingKeyGenerationMixin, db.Model):
+          sharding_key_value = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
+    """
+
+    def __init__(self, sharding_key_value=None):
+        modulo = 1 << 63
+        if sharding_key_value is None:
+            sharding_key_value = struct.unpack('>q', os.urandom(8))[0] % modulo or 1
+        assert 0 < sharding_key_value < modulo
+        self.sharding_key_value = sharding_key_value
+
+    @classmethod
+    def generate(cls, *, sharding_key_value=None, tries=50):
+        """Create a unique instance and return its `sharding_key_value`."""
+
+        session = cls._atomic_blocks_sa.session
+        for _ in range(tries):
+            instance = cls(sharding_key_value=sharding_key_value)
+            session.begin_nested()
+            session.add(instance)
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                continue
+            return instance.sharding_key_value
+        raise RuntimeError('Can not generate a unique sharding key.')
 
 
 class AtomicBlocksMixin:
