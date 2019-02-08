@@ -75,6 +75,22 @@ class ShardingKeyGenerationMixin:
 
 
 class AtomicBlocksMixin:
+    """Adds utility functions to :class:`~flask_sqlalchemy.SQLAlchemy` and the declarative base.
+
+    For example::
+
+      from flask_sqlalchemy import SQLAlchemy
+      from flask_signalbus import AtomicBlocksMixin
+
+      class CustomSQLAlchemy(AtomicBlocksMixin, SQLAlchemy):
+          pass
+
+      db = CustomSQLAlchemy()
+
+    Note that `AtomicBlocksMixin` should always come before
+    :class:`~flask_sqlalchemy.SQLAlchemy`.
+
+    """
 
     def make_declarative_base(self, model, *args, **kwargs):
         class model(_ModelUtilitiesMixin, model):
