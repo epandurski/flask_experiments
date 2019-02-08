@@ -1,7 +1,7 @@
 import pytest
 from flask_signalbus import DBSerializationError
 from swaptacular_debtor.models import ShardingKey, Debtor
-from swaptacular_debtor.db_tools import execute_atomic, retry_on_integrity_error
+from swaptacular_debtor.extensions import db
 
 
 def test_execute_atomic(db_session, mocker):
@@ -9,27 +9,27 @@ def test_execute_atomic(db_session, mocker):
     var = 1
 
     with pytest.raises(RuntimeError):
-        @execute_atomic
+        @db.execute_atomic
         def f1():
             raise RuntimeError
     commit.assert_not_called()
 
     with pytest.raises(AssertionError):
-        @execute_atomic
+        @db.execute_atomic
         def f2():
-            @execute_atomic
+            @db.execute_atomic
             def recursive():
                 pass
     commit.assert_not_called()
 
-    @execute_atomic
+    @db.execute_atomic
     def f3():
         assert var == 1
         return 666
     commit.assert_called_once()
     assert f3 == 666
 
-    assert execute_atomic(lambda x: x, 777) == 777
+    assert db.execute_atomic(lambda x: x, 777) == 777
 
 
 def test_retry_on_integrity_error(db_session):
@@ -41,21 +41,21 @@ def test_retry_on_integrity_error(db_session):
     )
 
     with pytest.raises(AssertionError):
-        with retry_on_integrity_error():
+        with db.retry_on_integrity_error():
             db_session.merge(d)
     assert len(Debtor.query.all()) == 0
 
-    @execute_atomic
+    @db.execute_atomic
     def t1():
-        with retry_on_integrity_error():
+        with db.retry_on_integrity_error():
             db_session.merge(d)
     assert len(Debtor.query.all()) == 1
 
     db_session.expunge_all()
     d.guarantor_debtor_id = 2
-    @execute_atomic
+    @db.execute_atomic
     def t2():
-        with retry_on_integrity_error():
+        with db.retry_on_integrity_error():
             db_session.merge(d)
     debtors = Debtor.query.all()
     assert len(debtors) == 1
@@ -76,10 +76,10 @@ def test_retry_on_integrity_error_slow(db_session):
     db_session.expunge_all()
 
     with pytest.raises(DBSerializationError):
-        @execute_atomic
+        @db.execute_atomic
         def t():
             nonlocal num_called
-            with retry_on_integrity_error():
+            with db.retry_on_integrity_error():
                 num_called += 1
                 db_session.add(d)
     assert num_called > 1
