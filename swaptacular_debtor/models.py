@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, null
 from .extensions import db
-from .atomic_blocks import ShardingKeyGenerationMixin
+from .flask_atomic_procedures import ShardingKeyGenerationMixin
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
 

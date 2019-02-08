@@ -3,7 +3,7 @@ from sqlalchemy.exc import SAWarning
 from flask_sqlalchemy import SQLAlchemy
 from flask_signalbus import SignalBusMixin
 from flask_migrate import Migrate
-from .atomic_blocks import AtomicBlocksMixin
+from .flask_atomic_procedures import AtomicProceduresMixin
 
 
 warnings.filterwarnings(
@@ -13,7 +13,7 @@ warnings.filterwarnings(
 )
 
 
-class CustomAlchemy(AtomicBlocksMixin, SignalBusMixin, SQLAlchemy):
+class CustomAlchemy(AtomicProceduresMixin, SignalBusMixin, SQLAlchemy):
     def apply_driver_hacks(self, app, info, options):
         if "isolation_level" not in options:
             options["isolation_level"] = "REPEATABLE_READ"

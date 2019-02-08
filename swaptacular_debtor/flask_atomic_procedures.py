@@ -7,7 +7,7 @@ from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import IntegrityError
 from flask_signalbus import DBSerializationError, retry_on_deadlock
 
-SESSION_INFO_ATOMIC_FLAG = 'atomic_blocks__atomic_flag'
+SESSION_INFO_ATOMIC_FLAG = 'flask_atomic_procedures__atomic_flag'
 
 
 class _ModelUtilitiesMixin:
@@ -16,7 +16,7 @@ class _ModelUtilitiesMixin:
         """Return an instance in `db.session` when given any instance or a primary key."""
 
         if isinstance(instance_or_pk, cls):
-            if instance_or_pk in cls._atomic_blocks_sa.session:
+            if instance_or_pk in cls._flask_atomic_procedures_sa.session:
                 return instance_or_pk
             instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
         return cls.query.get(instance_or_pk)
@@ -60,7 +60,7 @@ class ShardingKeyGenerationMixin:
     def generate(cls, *, sharding_key_value=None, tries=50):
         """Create a unique instance and return its `sharding_key_value`."""
 
-        session = cls._atomic_blocks_sa.session
+        session = cls._flask_atomic_procedures_sa.session
         for _ in range(tries):
             instance = cls(sharding_key_value=sharding_key_value)
             session.begin_nested()
@@ -74,20 +74,20 @@ class ShardingKeyGenerationMixin:
         raise RuntimeError('Can not generate a unique sharding key.')
 
 
-class AtomicBlocksMixin:
+class AtomicProceduresMixin:
     """Adds utility functions to :class:`~flask_sqlalchemy.SQLAlchemy` and the declarative base.
 
     For example::
 
       from flask_sqlalchemy import SQLAlchemy
-      from flask_signalbus import AtomicBlocksMixin
+      from flask_signalbus import AtomicProceduresMixin
 
-      class CustomSQLAlchemy(AtomicBlocksMixin, SQLAlchemy):
+      class CustomSQLAlchemy(AtomicProceduresMixin, SQLAlchemy):
           pass
 
       db = CustomSQLAlchemy()
 
-    Note that `AtomicBlocksMixin` should always come before
+    Note that `AtomicProceduresMixin` should always come before
     :class:`~flask_sqlalchemy.SQLAlchemy`.
 
     """
@@ -96,7 +96,7 @@ class AtomicBlocksMixin:
         class model(_ModelUtilitiesMixin, model):
             pass
         declarative_base = super().make_declarative_base(model, *args, **kwargs)
-        declarative_base._atomic_blocks_sa = self
+        declarative_base._flask_atomic_procedures_sa = self
         return declarative_base
 
     def execute_atomic(self, __func__, *args, **kwargs):
