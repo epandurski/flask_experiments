@@ -75,16 +75,20 @@ class ShardingKeyGenerationMixin:
 
 def execute_transaction(__func__, *args, **kwargs):
     session = db.session
-    assert not session.info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
-        '"execute_transaction" can not be called recursively'
-    session.info[IN_TRANSACTION_SESSION_INFO_FLAG] = True
+    session_info = session.info
+    assert not session_info.get(IN_TRANSACTION_SESSION_INFO_FLAG), \
+        '"execute_transaction" must not be called recursively'
+    func = retry_on_deadlock(session)(__func__)
+    session_info[IN_TRANSACTION_SESSION_INFO_FLAG] = True
     try:
-        retry_on_db_serialization_errors = retry_on_deadlock(session)
-        result = retry_on_db_serialization_errors(__func__)(*args, **kwargs)
+        result = func(*args, **kwargs)
         session.commit()
         return result
+    except Exception:
+        session.rollback()
+        raise
     finally:
-        session.info[IN_TRANSACTION_SESSION_INFO_FLAG] = False
+        session_info[IN_TRANSACTION_SESSION_INFO_FLAG] = False
 
 
 def assert_in_transaction():
@@ -95,9 +99,10 @@ def assert_in_transaction():
 @contextmanager
 def retry_on_integrity_error():
     assert_in_transaction()
-    db.session.flush()
+    session = db.session
+    session.flush()
     try:
         yield
-        db.session.flush()
+        session.flush()
     except IntegrityError:
         raise DBSerializationError
