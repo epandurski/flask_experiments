@@ -1,5 +1,5 @@
 import pytest
-from flask_signalbus import DBSerializationError
+from flask_signalbus.utils import DBSerializationError
 from swaptacular_debtor.models import ShardingKey, Debtor
 from swaptacular_debtor.extensions import db
 
