@@ -1,13 +1,18 @@
 import math
 import pytest
 from sqlalchemy import inspect
+from flask_signalbus.utils import DBSerializationError
+from swaptacular_debtor.extensions import db
 from swaptacular_debtor.models import ShardingKey, Debtor, Account, Branch, Operator, OperatorTransaction, \
     OperatorTransactionRequest, PreparedTransfer
 
 
 def _get_debtor():
+    sharding_key = ShardingKey()
+    with db.retry_on_integrity_error():
+        db.session.add(sharding_key)
     return Debtor(
-        sharding_key=ShardingKey._conjure_instance(),
+        sharding_key=sharding_key,
         guarantor_id=1,
         guarantor_creditor_id=1,
         guarantor_debtor_id=1,
@@ -15,19 +20,33 @@ def _get_debtor():
 
 
 def test_create_sharding_key():
-    assert ShardingKey()
+    assert ShardingKey().debtor_id > 0
 
 
+@pytest.mark.skip('too slow')
 @pytest.mark.models
 def test_generate_sharding_key(db_session):
-    k = ShardingKey._conjure_instance().debtor_id
-    db_session.commit()
-    all_keys = ShardingKey.query.all()
-    assert len(all_keys) == 1
-    assert all_keys[0].debtor_id == k
+    @db.execute_atomic
+    def debtor_id():
+        sharding_key = ShardingKey()
+        with db.retry_on_integrity_error():
+            db.session.add(sharding_key)
+        return sharding_key.debtor_id
+    sharding_keys = ShardingKey.query.all()
+    assert len(sharding_keys) == 1
+    assert sharding_keys[0].debtor_id == debtor_id
     db_session.expunge_all()
-    with pytest.raises(RuntimeError):
-        ShardingKey._conjure_instance(debtor_id=k, __tries=2)
+
+    num_calls = 0
+    with pytest.raises(DBSerializationError):
+        @db.execute_atomic
+        def f():
+            nonlocal num_calls
+            num_calls += 1
+            sharding_key = ShardingKey(debtor_id=debtor_id)
+            with db.retry_on_integrity_error():
+                db.session.add(sharding_key)
+    assert num_calls > 1
 
 
 @pytest.mark.models
@@ -36,6 +55,7 @@ def test_no_sharding_keys(db_session):
 
 
 @pytest.mark.models
+@db.atomic
 def test_create_accounts(db_session):
     d1 = _get_debtor()
     db_session.add(Account(debtor=d1, creditor_id=666))
@@ -51,6 +71,7 @@ def test_create_accounts(db_session):
 
 
 @pytest.mark.models
+@db.atomic
 def test_create_prepared_transfer(db_session):
     d = _get_debtor()
     a = Account(debtor=d, creditor_id=666)
@@ -77,6 +98,7 @@ def test_create_prepared_transfer(db_session):
 
 
 @pytest.mark.models
+@db.atomic
 def test_create_transactions(db_session):
     d1 = _get_debtor()
     b1 = Branch(debtor=d1, branch_id=1)
