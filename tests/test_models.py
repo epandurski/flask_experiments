@@ -5,20 +5,29 @@ from swaptacular_debtor.models import ShardingKey, Debtor, Account, Branch, Oper
     OperatorTransactionRequest, PreparedTransfer
 
 
+def _get_debtor():
+    return Debtor(
+        sharding_key=ShardingKey._conjure_instance(),
+        guarantor_id=1,
+        guarantor_creditor_id=1,
+        guarantor_debtor_id=1,
+    )
+
+
 def test_create_sharding_key():
     assert ShardingKey()
 
 
 @pytest.mark.models
 def test_generate_sharding_key(db_session):
-    k = ShardingKey.generate()
+    k = ShardingKey._conjure_instance().debtor_id
     db_session.commit()
     all_keys = ShardingKey.query.all()
     assert len(all_keys) == 1
-    assert all_keys[0].sharding_key_value == k
+    assert all_keys[0].debtor_id == k
     db_session.expunge_all()
     with pytest.raises(RuntimeError):
-        ShardingKey.generate(sharding_key_value=k, tries=2)
+        ShardingKey._conjure_instance(debtor_id=k, __tries=2)
 
 
 @pytest.mark.models
@@ -28,10 +37,10 @@ def test_no_sharding_keys(db_session):
 
 @pytest.mark.models
 def test_create_accounts(db_session):
-    d1 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    d1 = _get_debtor()
     db_session.add(Account(debtor=d1, creditor_id=666))
     db_session.add(Account(debtor=d1, creditor_id=777))
-    d2 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    d2 = _get_debtor()
     db_session.add(Account(debtor=d2, creditor_id=888))
     db_session.commit()
     assert len(d1.account_list) == 2
@@ -43,7 +52,7 @@ def test_create_accounts(db_session):
 
 @pytest.mark.models
 def test_create_prepared_transfer(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    d = _get_debtor()
     a = Account(debtor=d, creditor_id=666)
     b = Branch(debtor=d, branch_id=1)
     o = Operator(branch=b, user_id=1, alias='user 1')
@@ -69,14 +78,14 @@ def test_create_prepared_transfer(db_session):
 
 @pytest.mark.models
 def test_create_transactions(db_session):
-    d1 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    d1 = _get_debtor()
     b1 = Branch(debtor=d1, branch_id=1)
     o1 = Operator(debtor=d1, branch=b1, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d1, branch=b1, user_id=2, alias='user 2'))
     db_session.add(OperatorTransaction(debtor=d1, creditor_id=666, amount=5, operator=o1))
     db_session.add(OperatorTransaction(debtor=d1, creditor_id=777, amount=50, operator=o1))
 
-    d2 = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
+    d2 = _get_debtor()
     b2 = Branch(debtor=d2, branch_id=1)
     o2 = Operator(debtor=d2, branch=b2, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d2, branch=b2, user_id=3, alias='user 3'))
@@ -104,38 +113,3 @@ def test_create_transactions(db_session):
     assert inspect(t).deleted
     db_session.commit()
     assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().operator_transaction_list) == 1
-
-
-def test_get_instance(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
-    assert d not in db_session
-    assert Debtor._get_instance(d) is None
-    db_session.add(d)
-    assert Debtor._get_instance(d) is d
-    assert d in db_session
-    pk = d.debtor_id
-    db_session.commit()
-    assert Debtor._get_instance(pk) in db_session
-    assert Debtor._get_instance((pk,)) in db_session
-    assert Debtor._get_instance(d) in db_session
-
-
-def test_lock_instance(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
-    assert d not in db_session
-    assert Debtor._lock_instance(d) is None
-    db_session.add(d)
-    assert Debtor._lock_instance(d) is d
-    assert d in db_session
-    pk = d.debtor_id
-    db_session.commit()
-    assert Debtor._lock_instance(pk) in db_session
-    assert Debtor._lock_instance((pk,)) in db_session
-    assert Debtor._lock_instance(d) in db_session
-
-
-def test_get_pk_values(db_session):
-    d = Debtor(debtor_id=ShardingKey.generate(), guarantor_id=1, guarantor_creditor_id=1, guarantor_debtor_id=1)
-    assert Debtor._get_pk_values(d) == (d.debtor_id,)
-    assert Debtor._get_pk_values(1) == (1,)
-    assert Debtor._get_pk_values((1,)) == (1,)

@@ -1,9 +1,10 @@
+import os
+import struct
 import datetime
 import math
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, null
-from flask_signalbus.atomic import ShardingKeyGenerationMixin
 from .extensions import db
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
@@ -17,12 +18,19 @@ def xor_(expr1, expr2):
     return expr1 & ~expr2 | ~expr1 & expr2
 
 
-class ShardingKey(ShardingKeyGenerationMixin, db.Model):
-    sharding_key_value = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
+class ShardingKey(db.Model):
+    debtor_id = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
+
+    def __init__(self, debtor_id=None):
+        modulo = 1 << 63
+        if debtor_id is None:
+            debtor_id = struct.unpack('>q', os.urandom(8))[0] % modulo or 1
+        assert 0 < debtor_id < modulo
+        self.debtor_id = debtor_id
 
 
 class Debtor(db.Model):
-    debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.sharding_key_value'), primary_key=True)
+    debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.debtor_id'), primary_key=True)
     guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
@@ -32,6 +40,8 @@ class Debtor(db.Model):
         db.CheckConstraint(demurrage_rate >= 0),
         db.CheckConstraint(demurrage_rate_ceiling >= 0),
     )
+
+    sharding_key = db.relationship('ShardingKey')
 
 
 class DebtorModel(db.Model):
