@@ -18,19 +18,8 @@ def xor_(expr1, expr2):
     return expr1 & ~expr2 | ~expr1 & expr2
 
 
-class ShardingKey(db.Model):
-    debtor_id = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
-
-    def __init__(self, debtor_id=None):
-        modulo = 1 << 63
-        if debtor_id is None:
-            debtor_id = struct.unpack('>q', os.urandom(8))[0] % modulo or 1
-        assert 0 < debtor_id < modulo
-        self.debtor_id = debtor_id
-
-
 class Debtor(db.Model):
-    debtor_id = db.Column(db.BigInteger, db.ForeignKey('sharding_key.debtor_id'), primary_key=True)
+    debtor_id = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
     guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
     guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
     guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
@@ -41,7 +30,12 @@ class Debtor(db.Model):
         db.CheckConstraint(demurrage_rate_ceiling >= 0),
     )
 
-    sharding_key = db.relationship('ShardingKey')
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'debtor_id' not in kwargs:
+            modulo = 1 << 63
+            self.debtor_id = struct.unpack('>q', os.urandom(8))[0] % modulo or 1
+            assert 0 < self.debtor_id < modulo
 
 
 class DebtorModel(db.Model):

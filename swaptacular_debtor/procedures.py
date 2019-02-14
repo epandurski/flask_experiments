@@ -1,5 +1,5 @@
 from .extensions import db
-from .models import ShardingKey, Debtor, Account, Coordinator, Branch, PreparedTransfer
+from .models import Debtor, Account, Coordinator, Branch, PreparedTransfer
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
@@ -9,7 +9,7 @@ execute_atomic = db.execute_atomic
 
 
 def create_debtor(**kw):
-    debtor = Debtor(debtor_id=ShardingKey.generate(), **kw)
+    debtor = Debtor(**kw)
     root_account = Account(
         debtor=debtor,
         creditor_id=ROOT_CREDITOR_ID,

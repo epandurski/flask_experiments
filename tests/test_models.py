@@ -3,24 +3,19 @@ import pytest
 from sqlalchemy import inspect
 from flask_signalbus.utils import DBSerializationError
 from swaptacular_debtor.extensions import db
-from swaptacular_debtor.models import ShardingKey, Debtor, Account, Branch, Operator, OperatorTransaction, \
+from swaptacular_debtor.models import Debtor, Account, Branch, Operator, OperatorTransaction, \
     OperatorTransactionRequest, PreparedTransfer
 
 
 def _get_debtor():
-    sharding_key = ShardingKey()
-    with db.retry_on_integrity_error():
-        db.session.add(sharding_key)
-    return Debtor(
-        sharding_key=sharding_key,
+    debtor = Debtor(
         guarantor_id=1,
         guarantor_creditor_id=1,
         guarantor_debtor_id=1,
     )
-
-
-def test_create_sharding_key():
-    assert ShardingKey().debtor_id > 0
+    with db.retry_on_integrity_error():
+        db.session.add(debtor)
+    return debtor
 
 
 @pytest.mark.skip('too slow')
@@ -28,13 +23,17 @@ def test_create_sharding_key():
 def test_generate_sharding_key(db_session):
     @db.execute_atomic
     def debtor_id():
-        sharding_key = ShardingKey()
+        debtor = Debtor(
+            guarantor_id=1,
+            guarantor_creditor_id=1,
+            guarantor_debtor_id=1,
+        )
         with db.retry_on_integrity_error():
-            db.session.add(sharding_key)
-        return sharding_key.debtor_id
-    sharding_keys = ShardingKey.query.all()
-    assert len(sharding_keys) == 1
-    assert sharding_keys[0].debtor_id == debtor_id
+            db.session.add(debtor)
+        return debtor.debtor_id
+    debtors = Debtor.query.all()
+    assert len(debtors) == 1
+    assert debtors[0].debtor_id == debtor_id
     db_session.expunge_all()
 
     num_calls = 0
@@ -43,15 +42,15 @@ def test_generate_sharding_key(db_session):
         def f():
             nonlocal num_calls
             num_calls += 1
-            sharding_key = ShardingKey(debtor_id=debtor_id)
+            sharding_key = Debtor(debtor_id=debtor_id)
             with db.retry_on_integrity_error():
                 db.session.add(sharding_key)
     assert num_calls > 1
 
 
 @pytest.mark.models
-def test_no_sharding_keys(db_session):
-    assert len(ShardingKey.query.all()) == 0
+def test_no_debtors(db_session):
+    assert len(Debtor.query.all()) == 0
 
 
 @pytest.mark.models
