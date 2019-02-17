@@ -4,7 +4,7 @@ import datetime
 import math
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
-from sqlalchemy.sql.expression import and_, null
+from sqlalchemy.sql.expression import and_, or_, null
 from .extensions import db
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
@@ -12,10 +12,6 @@ BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.ti
 
 def get_now_utc():
     return datetime.datetime.now(tz=datetime.timezone.utc)
-
-
-def xor_(expr1, expr2):
-    return expr1 & ~expr2 | ~expr1 & expr2
 
 
 class Debtor(db.Model):
@@ -84,9 +80,8 @@ class Account(DebtorModel):
 
 class PreparedTransfer(DebtorModel):
     TYPE_CIRCULAR = 1
-    TYPE_OPERATOR = 2
-    TYPE_GUARANTOR = 3
-    TYPE_DIRECT = 4
+    TYPE_DIRECT = 2
+    TYPE_THIRD_PARTY = 3
 
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
@@ -97,9 +92,8 @@ class PreparedTransfer(DebtorModel):
         nullable=False,
         comment=(
             f'{TYPE_CIRCULAR} -- circular transfer, '
-            f'{TYPE_OPERATOR} -- operator transfer, '
-            f'{TYPE_GUARANTOR} -- guarantor transfer, '
             f'{TYPE_DIRECT} -- direct transfer '
+            f'{TYPE_THIRD_PARTY} -- third party transfer, '
         ),
     )
     amount = db.Column(db.BigInteger, nullable=False)
@@ -107,7 +101,8 @@ class PreparedTransfer(DebtorModel):
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     coordinator_id = db.Column(db.Integer)
     operator_transaction_request_seqnum = db.Column(db.BigInteger)
-    guarantor_transfer_amount = db.Column(db.BigInteger)
+    third_party_debtor_id = db.Column(db.BigInteger)
+    third_party_amount = db.Column(db.BigInteger)
     __table_args__ = (
         db.ForeignKeyConstraint(
             ['debtor_id', 'sender_creditor_id'],
@@ -132,10 +127,19 @@ class PreparedTransfer(DebtorModel):
         db.Index('idx_prepared_transfer_sender_creditor_id', debtor_id, sender_creditor_id),
         db.CheckConstraint(amount >= 0),
         db.CheckConstraint(sender_locked_amount >= 0),
-        db.CheckConstraint(guarantor_transfer_amount >= 0),
-        db.CheckConstraint(xor_(transfer_type == TYPE_CIRCULAR, coordinator_id == null())),
-        db.CheckConstraint(xor_(transfer_type == TYPE_OPERATOR, operator_transaction_request_seqnum == null())),
-        db.CheckConstraint(xor_(transfer_type == TYPE_GUARANTOR, guarantor_transfer_amount == null())),
+        db.CheckConstraint(third_party_amount >= 0),
+        db.CheckConstraint(or_(
+            and_(transfer_type == TYPE_CIRCULAR, coordinator_id != null()),
+            and_(transfer_type != TYPE_CIRCULAR, coordinator_id == null()),
+        )),
+        db.CheckConstraint(or_(
+            transfer_type == TYPE_DIRECT,
+            operator_transaction_request_seqnum == null(),
+        )),
+        db.CheckConstraint(or_(
+            and_(transfer_type == TYPE_THIRD_PARTY, third_party_debtor_id != null(), third_party_amount != null()),
+            and_(transfer_type != TYPE_THIRD_PARTY, third_party_debtor_id == null(), third_party_amount == null()),
+        )),
     )
 
     sender_account = db.relationship(
