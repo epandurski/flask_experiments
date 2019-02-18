@@ -1,5 +1,6 @@
 import math
 import pytest
+import datetime
 from sqlalchemy import inspect
 from flask_signalbus.utils import DBSerializationError
 from swaptacular_debtor.extensions import db
@@ -8,11 +9,7 @@ from swaptacular_debtor.models import Debtor, Account, Branch, Operator, Operato
 
 
 def _get_debtor():
-    debtor = Debtor(
-        guarantor_id=1,
-        guarantor_creditor_id=1,
-        guarantor_debtor_id=1,
-    )
+    debtor = Debtor()
     with db.retry_on_integrity_error():
         db.session.add(debtor)
     return debtor
@@ -23,11 +20,7 @@ def _get_debtor():
 def test_generate_sharding_key(db_session):
     @db.execute_atomic
     def debtor_id():
-        debtor = Debtor(
-            guarantor_id=1,
-            guarantor_creditor_id=1,
-            guarantor_debtor_id=1,
-        )
+        debtor = Debtor()
         with db.retry_on_integrity_error():
             db.session.add(debtor)
         return debtor.debtor_id
@@ -76,7 +69,8 @@ def test_create_prepared_transfer(db_session):
     a = Account(debtor=d, creditor_id=666)
     b = Branch(debtor=d, branch_id=1)
     o = Operator(branch=b, user_id=1, alias='user 1')
-    otr = OperatorTransactionRequest(creditor_id=666, operator=o, amount=50)
+    deadline_ts = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=2)
+    otr = OperatorTransactionRequest(creditor_id=666, operator=o, amount=50, deadline_ts=deadline_ts)
     pt = PreparedTransfer(
         sender_account=a,
         recipient_creditor_id=777,

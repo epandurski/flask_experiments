@@ -16,9 +16,6 @@ def get_now_utc():
 
 class Debtor(db.Model):
     debtor_id = db.Column(db.BigInteger, primary_key=True, autoincrement=False)
-    guarantor_id = db.Column(db.BigInteger, nullable=False, comment='Must not change!')
-    guarantor_debtor_id = db.Column(db.BigInteger, nullable=False)
-    guarantor_creditor_id = db.Column(db.BigInteger, nullable=False)
     demurrage_rate = db.Column(db.REAL, nullable=False, default=0.0)
     demurrage_rate_ceiling = db.Column(db.REAL, nullable=False, default=0.0)
     __table_args__ = (
@@ -175,7 +172,6 @@ class Operator(DebtorModel):
     alias = db.Column(db.String(100), nullable=False)
     profile = db.Column(pg.JSONB, nullable=False, default={})
     can_withdraw = db.Column(db.Boolean, nullable=False, default=False)
-    can_deposit = db.Column(db.Boolean, nullable=False, default=False)
     can_audit = db.Column(db.Boolean, nullable=False, default=False)
     __table_args__ = (
         db.ForeignKeyConstraint(
@@ -228,6 +224,7 @@ class OperatorTransactionDataMixin:
 
 
 class OperatorTransactionRequest(OperatorTransactionDataMixin, DebtorModel):
+    deadline_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
     operator_transaction_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr
