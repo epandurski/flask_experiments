@@ -14,10 +14,7 @@ warnings.filterwarnings(
 
 
 class CustomAlchemy(AtomicProceduresMixin, SignalBusMixin, SQLAlchemy):
-    def apply_driver_hacks(self, app, info, options):
-        if "isolation_level" not in options:
-            options["isolation_level"] = "REPEATABLE_READ"
-        return super().apply_driver_hacks(app, info, options)
+    pass
 
 
 db = CustomAlchemy()
