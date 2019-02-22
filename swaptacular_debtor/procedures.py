@@ -1,5 +1,5 @@
 from .extensions import db
-from .models import Debtor, Account, Coordinator, Branch, PreparedTransfer
+from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
@@ -8,31 +8,32 @@ DEFAULT_BRANCH_ID = 1
 execute_atomic = db.execute_atomic
 
 
+@db.atomic
 def create_debtor(**kw):
+    admin_user_id = kw.pop('user_id')
     debtor = Debtor(**kw)
-    root_account = Account(
+    Account(
         debtor=debtor,
         creditor_id=ROOT_CREDITOR_ID,
         discount_demurrage_rate=0.0,
     )
-    guarantor_account = Account(
-        debtor=debtor,
-        creditor_id=debtor.guarantor_creditor_id,
-        discount_demurrage_rate=0.0
-    )
-    default_coordinator = Coordinator(
+    Coordinator(
         debtor=debtor,
         coordinator_id=DEFAULT_COORINATOR_ID,
     )
-    default_branch = Branch(
+    Branch(
         debtor=debtor,
         branch_id=DEFAULT_BRANCH_ID,
     )
+    Operator(
+        branch=debtor.branch_list[0],
+        user_id=admin_user_id,
+        alias='admin',
+        can_withdraw=True,
+        can_audit=True,
+    )
     db.session.add(debtor)
-    db.session.add(root_account)
-    db.session.add(guarantor_account)
-    db.session.add(default_coordinator)
-    db.session.add(default_branch)
+    return debtor
 
 
 def prepare_transfer(debtor_id, sender_creditor_id, recipient_creditor_id, transfer_type,

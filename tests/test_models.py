@@ -6,6 +6,7 @@ from flask_signalbus.utils import DBSerializationError
 from swaptacular_debtor.extensions import db
 from swaptacular_debtor.models import Debtor, Account, Branch, Operator, OperatorTransaction, \
     OperatorTransactionRequest, PreparedTransfer
+from swaptacular_debtor import procedures
 
 
 def _get_debtor():
@@ -128,3 +129,13 @@ def test_create_transactions(db_session):
     assert inspect(t).deleted
     db_session.commit()
     assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().operator_transaction_list) == 1
+
+
+@db.atomic
+def test_create_debtor(db_session):
+    debtor = procedures.create_debtor(user_id=666)
+    debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
+    assert len(debtor.operator_list) == 1
+    assert len(debtor.branch_list) == 1
+    assert len(debtor.coordinator_list) == 1
+    assert len(debtor.account_list) == 1

@@ -156,7 +156,6 @@ class PreparedTransfer(DebtorModel):
 class Coordinator(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     coordinator_id = db.Column(db.Integer, primary_key=True)
-    info = db.Column(pg.JSONB, nullable=False, default={})
 
 
 class Branch(DebtorModel):
