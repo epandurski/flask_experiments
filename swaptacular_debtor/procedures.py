@@ -12,6 +12,10 @@ class InsufficientFunds(Exception):
     """The required amount is not available for transaction at the moment."""
 
 
+class InvalidOperatorTransactionRequest(Exception):
+    """The specified operator transaction request does not exist."""
+
+
 @db.atomic
 def create_debtor(**kw):
     admin_user_id = kw.pop('user_id')
@@ -74,16 +78,18 @@ def create_operator_transaction_request(operator, creditor_id, amount, deadline_
 @db.atomic
 def create_operator_payment(operator_transaction_request):
     request = OperatorTransactionRequest.get_instance(operator_transaction_request)
-    _lock_account_amount((request.debtor_id, request.creditor_id), request.amount)
-    transfer = PreparedTransfer(
-        debtor_id=request.debtor_id,
-        sender_creditor_id=request.creditor_id,
-        recipient_creditor_id=ROOT_CREDITOR_ID,
-        transfer_type=PreparedTransfer.TYPE_DIRECT,
-        amount=request.amount,
-        sender_locked_amount=request.amount,
-        operator_transaction_request_seqnum=request.operator_transaction_request_seqnum,
-    )
+    if request is None:
+        raise InvalidOperatorTransactionRequest()
+    sender_account = _lock_account_amount((request.debtor_id, request.creditor_id), request.amount)
+    with db.retry_on_integrity_error():
+        transfer = PreparedTransfer(
+            sender_account=sender_account,
+            sender_locked_amount=request.amount,
+            recipient_creditor_id=ROOT_CREDITOR_ID,
+            amount=request.amount,
+            transfer_type=PreparedTransfer.TYPE_DIRECT,
+            operator_transaction_request=request,
+        )
     db.session.add(transfer)
     return transfer
 
