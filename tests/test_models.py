@@ -105,7 +105,7 @@ def test_create_transactions(db_session):
     b2 = Branch(debtor=d2, branch_id=1)
     o2 = Operator(debtor=d2, branch=b2, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d2, branch=b2, user_id=3, alias='user 3'))
-    db_session.add(OperatorTransaction(debtor=d2, creditor_id=888, amount=-10, operator=o2))
+    db_session.add(OperatorTransaction(debtor=d2, creditor_id=888, amount=10, operator=o2))
 
     db_session.commit()
     assert len(d1.operator_list) == 2

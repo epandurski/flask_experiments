@@ -201,6 +201,7 @@ class OperatorTransactionDataMixin:
                 ['debtor_id', 'operator_branch_id', 'operator_user_id'],
                 ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'],
             ),
+            db.CheckConstraint('amount > 0'),
         )
 
     @declared_attr

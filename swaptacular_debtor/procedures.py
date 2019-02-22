@@ -57,7 +57,6 @@ def _lock_account_amount(account, amount, ignore_demurrage=False):
 
 @db.atomic
 def create_operator_transaction_request(operator, creditor_id, amount, deadline_ts, details={}):
-    assert amount > 0
     debtor_id, operator_branch_id, operator_user_id = Operator.get_pk_values(operator)
     request = OperatorTransactionRequest(
         debtor_id=debtor_id,
