@@ -131,7 +131,6 @@ def test_create_transactions(db_session):
     assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().operator_transaction_list) == 1
 
 
-@db.atomic
 def test_create_debtor(db_session):
     debtor = procedures.create_debtor(user_id=666)
     debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
@@ -139,3 +138,19 @@ def test_create_debtor(db_session):
     assert len(debtor.branch_list) == 1
     assert len(debtor.coordinator_list) == 1
     assert len(debtor.account_list) == 1
+
+
+def test_create_operator_transaction_request(db_session):
+    debtor = procedures.create_debtor(user_id=666)
+    debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
+    len(debtor.operator_transaction_request_list) == 0
+    operator = debtor.operator_list[0]
+    deadline_ts = datetime.datetime.now(tz=datetime.timezone.utc)
+    request = procedures.create_operator_transaction_request(operator, 777, 1000, deadline_ts)
+    debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
+    len(debtor.operator_transaction_request_list) == 1
+    with pytest.raises(procedures.InsufficientFunds):
+        procedures.prepare_operator_payment(request)
+    db_session.add(Account(debtor=debtor, creditor_id=777, balance=2000, avl_balance=2000))
+    payment = procedures.prepare_operator_payment(request)
+    assert payment.amount == 1000

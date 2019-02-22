@@ -1,11 +1,15 @@
 from .extensions import db
-from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer
+from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, OperatorTransactionRequest
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
 DEFAULT_BRANCH_ID = 1
 
 execute_atomic = db.execute_atomic
+
+
+class InsufficientFunds(Exception):
+    """The required amount is not available for transaction at the moment."""
 
 
 @db.atomic
@@ -36,6 +40,55 @@ def create_debtor(**kw):
     return debtor
 
 
+def _lock_account_amount(account, amount, ignore_demurrage=False):
+    assert amount > 0
+    account = Account.lock_instance(account)
+    if account:
+        avl_balance = account.avl_balance
+        if ignore_demurrage:
+            avl_balance += account.demurrage
+        if avl_balance < amount:
+            raise InsufficientFunds(avl_balance)
+        account.avl_balance -= amount
+        return account
+    else:
+        raise InsufficientFunds(0)
+
+
+@db.atomic
+def create_operator_transaction_request(operator, creditor_id, amount, deadline_ts, details={}):
+    assert amount > 0
+    debtor_id, operator_branch_id, operator_user_id = Operator.get_pk_values(operator)
+    request = OperatorTransactionRequest(
+        debtor_id=debtor_id,
+        creditor_id=creditor_id,
+        amount=amount,
+        operator_branch_id=operator_branch_id,
+        operator_user_id=operator_user_id,
+        deadline_ts=deadline_ts,
+        details=details,
+    )
+    db.session.add(request)
+    return request
+
+
+@db.atomic
+def prepare_operator_payment(operator_transaction_request):
+    request = OperatorTransactionRequest.get_instance(operator_transaction_request)
+    _lock_account_amount((request.debtor_id, request.creditor_id), request.amount)
+    transfer = PreparedTransfer(
+        debtor_id=request.debtor_id,
+        sender_creditor_id=request.creditor_id,
+        recipient_creditor_id=ROOT_CREDITOR_ID,
+        transfer_type=PreparedTransfer.TYPE_DIRECT,
+        amount=request.amount,
+        sender_locked_amount=request.amount,
+        operator_transaction_request_seqnum=request.operator_transaction_request_seqnum,
+    )
+    db.session.add(transfer)
+    return transfer
+
+
 def prepare_transfer(debtor_id, sender_creditor_id, recipient_creditor_id, transfer_type,
                      amount, lock_amount=True, **kw):
     assert amount > 0
@@ -62,17 +115,6 @@ def prepare_transfer(debtor_id, sender_creditor_id, recipient_creditor_id, trans
         **kw,
     )
     db.session.add(transfer)
-
-
-def prepare_operator_transaction(debtor_id, sender_creditor_id, recipient_creditor_id,
-                                 amount, operator_transaction_request_seqnum):
-    return prepare_transfer(
-        debtor_id,
-        sender_creditor_id,
-        recipient_creditor_id,
-        amount,
-        operator_transaction_request_seqnum=operator_transaction_request_seqnum
-    )
 
 
 def coordinator_commit_prepared_transfer(coordinator_id, debtor_id, prepared_transfer_seqnum):
