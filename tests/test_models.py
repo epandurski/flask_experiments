@@ -150,7 +150,7 @@ def test_create_operator_transaction_request(db_session):
     debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
     len(debtor.operator_transaction_request_list) == 1
     with pytest.raises(procedures.InsufficientFunds):
-        procedures.prepare_operator_payment(request)
+        procedures.create_operator_payment(request)
     db_session.add(Account(debtor=debtor, creditor_id=777, balance=2000, avl_balance=2000))
-    payment = procedures.prepare_operator_payment(request)
+    payment = procedures.create_operator_payment(request)
     assert payment.amount == 1000

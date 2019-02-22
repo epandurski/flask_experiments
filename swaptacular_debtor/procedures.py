@@ -72,7 +72,7 @@ def create_operator_transaction_request(operator, creditor_id, amount, deadline_
 
 
 @db.atomic
-def prepare_operator_payment(operator_transaction_request):
+def create_operator_payment(operator_transaction_request):
     request = OperatorTransactionRequest.get_instance(operator_transaction_request)
     _lock_account_amount((request.debtor_id, request.creditor_id), request.amount)
     transfer = PreparedTransfer(
