@@ -80,7 +80,8 @@ def create_operator_payment(operator_transaction_request):
     request = OperatorTransactionRequest.get_instance(operator_transaction_request)
     if request is None:
         raise InvalidOperatorTransactionRequest()
-    sender_account = _lock_account_amount((request.debtor_id, request.creditor_id), request.amount)
+    sender_account = _lock_account_amount(
+        (request.debtor_id, request.creditor_id), request.amount, ignore_demurrage=False)
     with db.retry_on_integrity_error():
         transfer = PreparedTransfer(
             sender_account=sender_account,
