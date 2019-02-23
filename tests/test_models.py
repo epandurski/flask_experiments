@@ -168,3 +168,15 @@ def test_prepare_direct_transfer(db_session):
     assert transfer.amount == 1500
     with pytest.raises(procedures.InsufficientFunds):
         procedures.prepare_direct_transfer((transfer.debtor_id, transfer.sender_creditor_id), 888, 1500)
+
+
+@db.atomic
+def test_lock_account(db_session):
+    debtor = procedures.create_debtor(user_id=666)
+    account = procedures._lock_account((debtor.debtor_id, 777))
+    assert account
+    assert account.balance == 0
+    assert procedures._lock_account((debtor.debtor_id, 777))
+    account.balance = 10
+    a = procedures._lock_account(account)
+    assert a.balance == 10

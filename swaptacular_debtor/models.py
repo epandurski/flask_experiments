@@ -89,8 +89,8 @@ class PreparedTransfer(DebtorModel):
         nullable=False,
         comment=(
             f'{TYPE_CIRCULAR} -- circular transfer, '
-            f'{TYPE_DIRECT} -- direct transfer '
-            f'{TYPE_THIRD_PARTY} -- third party transfer, '
+            f'{TYPE_DIRECT} -- direct transfer, '
+            f'{TYPE_THIRD_PARTY} -- third party transfer '
         ),
     )
     amount = db.Column(db.BigInteger, nullable=False)
@@ -240,6 +240,7 @@ class WithdrawalRequest(WithdrawalDataMixin, DebtorModel):
 
 class Withdrawal(WithdrawalDataMixin, DebtorModel):
     closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
+    closing_comment = db.Column(pg.JSONB, nullable=False, default={}, comment='Notes from the creditor')
     withdrawal_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr

@@ -1,5 +1,6 @@
 from .extensions import db
-from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, WithdrawalRequest
+from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, WithdrawalRequest, \
+    Withdrawal, get_now_utc
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
@@ -46,19 +47,25 @@ def create_debtor(**kw):
     return debtor
 
 
+def _lock_account(account):
+    pk = Account.get_pk_values(account)
+    while True:
+        account = Account.lock_instance(pk)
+        if account:
+            return account
+        with db.retry_on_integrity_error():
+            db.session.add(Account(debtor_id=pk[0], creditor_id=pk[1]))
+
+
 def _lock_account_amount(account, amount, ignore_demurrage=False):
     assert amount > 0
-    account = Account.lock_instance(account)
-    if account:
-        avl_balance = account.avl_balance
-        if ignore_demurrage:
-            avl_balance += account.demurrage
-        if avl_balance < amount:
-            raise InsufficientFunds(avl_balance)
-        account.avl_balance -= amount
-        return account
-    else:
-        raise InsufficientFunds(0)
+    account = _lock_account(account)
+    avl_balance = account.avl_balance + (account.demurrage if ignore_demurrage else 0)
+    if avl_balance < amount:
+        raise InsufficientFunds(avl_balance)
+    account.avl_balance -= amount
+    return account
+
 
 
 @db.atomic
