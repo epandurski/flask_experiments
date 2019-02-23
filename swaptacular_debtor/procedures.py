@@ -1,5 +1,5 @@
 from .extensions import db
-from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, OperatorTransactionRequest
+from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, WithdrawalRequest
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
@@ -12,8 +12,8 @@ class InsufficientFunds(Exception):
     """The required amount is not available for transaction at the moment."""
 
 
-class InvalidOperatorTransactionRequest(Exception):
-    """The specified operator transaction request does not exist."""
+class InvalidWithdrawalRequest(Exception):
+    """The specified withdrawal does not exist."""
 
 
 @db.atomic
@@ -60,12 +60,12 @@ def _lock_account_amount(account, amount, ignore_demurrage=False):
 
 
 @db.atomic
-def create_operator_transaction_request(operator, creditor_id, amount, deadline_ts, details={}):
+def create_withdrawal_request(operator, creditor_id, amount, deadline_ts, details={}):
     debtor_id, operator_branch_id, operator_user_id = Operator.get_pk_values(operator)
 
     # We presume that the operator exists in the database. If not, an
     # unhandled integrity error will be raised.
-    request = OperatorTransactionRequest(
+    request = WithdrawalRequest(
         debtor_id=debtor_id,
         creditor_id=creditor_id,
         amount=amount,
@@ -79,23 +79,23 @@ def create_operator_transaction_request(operator, creditor_id, amount, deadline_
 
 
 @db.atomic
-def create_operator_payment(operator_transaction_request):
-    request = OperatorTransactionRequest.get_instance(operator_transaction_request)
-    if request is None:
-        raise InvalidOperatorTransactionRequest()
+def prepare_withdrawal(withdrawal_request):
+    withdrawal_request = WithdrawalRequest.get_instance(withdrawal_request)
+    if withdrawal_request is None:
+        raise InvalidWithdrawalRequest()
     sender_account = _lock_account_amount(
-        (request.debtor_id, request.creditor_id),
-        request.amount,
+        (withdrawal_request.debtor_id, withdrawal_request.creditor_id),
+        withdrawal_request.amount,
         ignore_demurrage=False,
     )
     with db.retry_on_integrity_error():
         transfer = PreparedTransfer(
             sender_account=sender_account,
-            sender_locked_amount=request.amount,
+            sender_locked_amount=withdrawal_request.amount,
             recipient_creditor_id=ROOT_CREDITOR_ID,
-            amount=request.amount,
+            amount=withdrawal_request.amount,
             transfer_type=PreparedTransfer.TYPE_DIRECT,
-            operator_transaction_request=request,
+            withdrawal_request=withdrawal_request,
         )
     db.session.add(transfer)
     return transfer

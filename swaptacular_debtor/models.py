@@ -97,7 +97,7 @@ class PreparedTransfer(DebtorModel):
     sender_locked_amount = db.Column(db.BigInteger, nullable=False)
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     coordinator_id = db.Column(db.Integer)
-    operator_transaction_request_seqnum = db.Column(db.BigInteger)
+    withdrawal_request_seqnum = db.Column(db.BigInteger)
     third_party_debtor_id = db.Column(db.BigInteger)
     third_party_amount = db.Column(db.BigInteger)
     __table_args__ = (
@@ -113,12 +113,12 @@ class PreparedTransfer(DebtorModel):
             [
                 'debtor_id',
                 'sender_creditor_id',
-                'operator_transaction_request_seqnum',
+                'withdrawal_request_seqnum',
             ],
             [
-                'operator_transaction_request.debtor_id',
-                'operator_transaction_request.creditor_id',
-                'operator_transaction_request.operator_transaction_request_seqnum',
+                'withdrawal_request.debtor_id',
+                'withdrawal_request.creditor_id',
+                'withdrawal_request.withdrawal_request_seqnum',
             ],
         ),
         db.Index('idx_prepared_transfer_sender_creditor_id', debtor_id, sender_creditor_id),
@@ -131,7 +131,7 @@ class PreparedTransfer(DebtorModel):
         )),
         db.CheckConstraint(or_(
             transfer_type == TYPE_DIRECT,
-            operator_transaction_request_seqnum == null(),
+            withdrawal_request_seqnum == null(),
         )),
         db.CheckConstraint(or_(
             and_(transfer_type == TYPE_THIRD_PARTY, third_party_debtor_id != null(), third_party_amount != null()),
@@ -147,8 +147,8 @@ class PreparedTransfer(DebtorModel):
         'Coordinator',
         backref=db.backref('prepared_transfer_list'),
     )
-    operator_transaction_request = db.relationship(
-        'OperatorTransactionRequest',
+    withdrawal_request = db.relationship(
+        'WithdrawalRequest',
         backref=db.backref('prepared_transfer', uselist=False),
     )
 
@@ -185,7 +185,7 @@ class Operator(DebtorModel):
     )
 
 
-class OperatorTransactionDataMixin:
+class WithdrawalDataMixin:
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     amount = db.Column(db.BigInteger, nullable=False)
@@ -223,23 +223,23 @@ class OperatorTransactionDataMixin:
         )
 
 
-class OperatorTransactionRequest(OperatorTransactionDataMixin, DebtorModel):
+class WithdrawalRequest(WithdrawalDataMixin, DebtorModel):
     deadline_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
-    operator_transaction_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    withdrawal_request_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr
     def __table_args__(cls):
         return super().__table_args__ + (
-            db.Index('idx_operator_transaction_request_opening_ts', 'debtor_id', 'operator_branch_id', 'opening_ts'),
+            db.Index('idx_withdrawal_request_opening_ts', 'debtor_id', 'operator_branch_id', 'opening_ts'),
         )
 
 
-class OperatorTransaction(OperatorTransactionDataMixin, DebtorModel):
+class Withdrawal(WithdrawalDataMixin, DebtorModel):
     closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
-    operator_transaction_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    withdrawal_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
 
     @declared_attr
     def __table_args__(cls):
         return super().__table_args__ + (
-            db.Index('idx_operator_transaction_closing_ts', 'debtor_id', 'operator_branch_id', 'closing_ts'),
+            db.Index('idx_withdrawal_closing_ts', 'debtor_id', 'operator_branch_id', 'closing_ts'),
         )

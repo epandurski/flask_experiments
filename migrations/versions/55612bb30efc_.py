@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: c711bf37a286
+Revision ID: 55612bb30efc
 Revises: 
-Create Date: 2019-02-22 21:15:29.421723
+Create Date: 2019-02-23 16:59:27.674058
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'c711bf37a286'
+revision = '55612bb30efc'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -63,7 +63,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['debtor_id', 'branch_id'], ['branch.debtor_id', 'branch.branch_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'branch_id', 'user_id')
     )
-    op.create_table('operator_transaction',
+    op.create_table('withdrawal',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('amount', sa.BigInteger(), nullable=False),
@@ -72,13 +72,13 @@ def upgrade():
     sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('closing_ts', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('operator_transaction_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('withdrawal_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.CheckConstraint('amount > 0'),
     sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ),
-    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_seqnum')
+    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'withdrawal_seqnum')
     )
-    op.create_index('idx_operator_transaction_closing_ts', 'operator_transaction', ['debtor_id', 'operator_branch_id', 'closing_ts'], unique=False)
-    op.create_table('operator_transaction_request',
+    op.create_index('idx_withdrawal_closing_ts', 'withdrawal', ['debtor_id', 'operator_branch_id', 'closing_ts'], unique=False)
+    op.create_table('withdrawal_request',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('amount', sa.BigInteger(), nullable=False),
@@ -87,12 +87,12 @@ def upgrade():
     sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('deadline_ts', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('withdrawal_request_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.CheckConstraint('amount > 0'),
     sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ),
-    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'operator_transaction_request_seqnum')
+    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'withdrawal_request_seqnum')
     )
-    op.create_index('idx_operator_transaction_request_opening_ts', 'operator_transaction_request', ['debtor_id', 'operator_branch_id', 'opening_ts'], unique=False)
+    op.create_index('idx_withdrawal_request_opening_ts', 'withdrawal_request', ['debtor_id', 'operator_branch_id', 'opening_ts'], unique=False)
     op.create_table('prepared_transfer',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
     sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
@@ -103,17 +103,17 @@ def upgrade():
     sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
     sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('coordinator_id', sa.Integer(), nullable=True),
-    sa.Column('operator_transaction_request_seqnum', sa.BigInteger(), nullable=True),
+    sa.Column('withdrawal_request_seqnum', sa.BigInteger(), nullable=True),
     sa.Column('third_party_debtor_id', sa.BigInteger(), nullable=True),
     sa.Column('third_party_amount', sa.BigInteger(), nullable=True),
     sa.CheckConstraint('amount >= 0'),
     sa.CheckConstraint('sender_locked_amount >= 0'),
     sa.CheckConstraint('third_party_amount >= 0'),
     sa.CheckConstraint('transfer_type = 1 AND coordinator_id IS NOT NULL OR transfer_type != 1 AND coordinator_id IS NULL'),
-    sa.CheckConstraint('transfer_type = 2 OR operator_transaction_request_seqnum IS NULL'),
+    sa.CheckConstraint('transfer_type = 2 OR withdrawal_request_seqnum IS NULL'),
     sa.CheckConstraint('transfer_type = 3 AND third_party_debtor_id IS NOT NULL AND third_party_amount IS NOT NULL OR transfer_type != 3 AND third_party_debtor_id IS NULL AND third_party_amount IS NULL'),
     sa.ForeignKeyConstraint(['debtor_id', 'coordinator_id'], ['coordinator.debtor_id', 'coordinator.coordinator_id'], ),
-    sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id', 'operator_transaction_request_seqnum'], ['operator_transaction_request.debtor_id', 'operator_transaction_request.creditor_id', 'operator_transaction_request.operator_transaction_request_seqnum'], ),
+    sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id', 'withdrawal_request_seqnum'], ['withdrawal_request.debtor_id', 'withdrawal_request.creditor_id', 'withdrawal_request.withdrawal_request_seqnum'], ),
     sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'prepared_transfer_seqnum')
     )
@@ -125,10 +125,10 @@ def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index('idx_prepared_transfer_sender_creditor_id', table_name='prepared_transfer')
     op.drop_table('prepared_transfer')
-    op.drop_index('idx_operator_transaction_request_opening_ts', table_name='operator_transaction_request')
-    op.drop_table('operator_transaction_request')
-    op.drop_index('idx_operator_transaction_closing_ts', table_name='operator_transaction')
-    op.drop_table('operator_transaction')
+    op.drop_index('idx_withdrawal_request_opening_ts', table_name='withdrawal_request')
+    op.drop_table('withdrawal_request')
+    op.drop_index('idx_withdrawal_closing_ts', table_name='withdrawal')
+    op.drop_table('withdrawal')
     op.drop_table('operator')
     op.drop_table('coordinator')
     op.drop_table('branch')
