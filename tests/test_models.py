@@ -140,7 +140,7 @@ def test_create_debtor(db_session):
     assert len(debtor.account_list) == 1
 
 
-def test_create_withdrawal_request(db_session):
+def test_prepare_withdrawal(db_session):
     debtor = procedures.create_debtor(user_id=666)
     debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
     len(debtor.withdrawal_request_list) == 0
@@ -154,3 +154,17 @@ def test_create_withdrawal_request(db_session):
     db_session.add(Account(debtor=debtor, creditor_id=777, balance=2000, avl_balance=2000))
     payment = procedures.prepare_withdrawal(request)
     assert payment.amount == 1000
+
+
+def test_prepare_direct_transfer(db_session):
+    @db.execute_atomic
+    def transfer():
+        debtor = procedures.create_debtor(user_id=666)
+        account = Account(debtor=debtor, creditor_id=777, balance=2000, avl_balance=2000)
+        assert account in db_session
+        db_session.add(account)
+        assert account in db_session
+        return procedures.prepare_direct_transfer(account, 888, 1500)
+    assert transfer.amount == 1500
+    with pytest.raises(procedures.InsufficientFunds):
+        procedures.prepare_direct_transfer((transfer.debtor_id, transfer.sender_creditor_id), 888, 1500)

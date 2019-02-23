@@ -20,27 +20,29 @@ class InvalidWithdrawalRequest(Exception):
 def create_debtor(**kw):
     admin_user_id = kw.pop('user_id')
     debtor = Debtor(**kw)
-    Account(
+    account = Account(
         debtor=debtor,
         creditor_id=ROOT_CREDITOR_ID,
         discount_demurrage_rate=0.0,
     )
-    Coordinator(
+    coordinator = Coordinator(
         debtor=debtor,
         coordinator_id=DEFAULT_COORINATOR_ID,
     )
-    Branch(
+    branch = Branch(
         debtor=debtor,
         branch_id=DEFAULT_BRANCH_ID,
     )
-    Operator(
-        branch=debtor.branch_list[0],
+    operator = Operator(
+        branch=branch,
         user_id=admin_user_id,
         alias='admin',
         can_withdraw=True,
         can_audit=True,
     )
-    db.session.add(debtor)
+    db.session.add(account)
+    db.session.add(coordinator)
+    db.session.add(operator)
     return debtor
 
 
@@ -91,7 +93,6 @@ def prepare_withdrawal(withdrawal_request):
     with db.retry_on_integrity_error():
         transfer = PreparedTransfer(
             sender_account=sender_account,
-            sender_locked_amount=withdrawal_request.amount,
             recipient_creditor_id=ROOT_CREDITOR_ID,
             amount=withdrawal_request.amount,
             transfer_type=PreparedTransfer.TYPE_DIRECT,
@@ -101,32 +102,18 @@ def prepare_withdrawal(withdrawal_request):
     return transfer
 
 
-def prepare_transfer(debtor_id, sender_creditor_id, recipient_creditor_id, transfer_type,
-                     amount, lock_amount=True, **kw):
+@db.atomic
+def prepare_direct_transfer(sender_account, recipient_creditor_id, amount):
     assert amount > 0
-    if lock_amount:
-        sender_account = Account.query.filter_by(
-            debtor_id=debtor_id,
-            sender_creditor_id=sender_creditor_id,
-        ).with_for_update().one()
-        avl_balance = sender_account.avl_balance
-        if transfer_type == PreparedTransfer.TYPE_OPERATOR:
-            avl_balance += sender_account.demurrage
-        if avl_balance < amount:
-            raise RuntimeError('Insufficient funds')
-        sender_account.avl_balance -= amount
-        sender_locked_amount = amount
-    else:
-        sender_locked_amount = 0
+    sender_account = _lock_account_amount(sender_account, amount)
     transfer = PreparedTransfer(
         sender_account=sender_account,
         recipient_creditor_id=recipient_creditor_id,
-        transfer_type=transfer_type,
         amount=amount,
-        sender_locked_amount=sender_locked_amount,
-        **kw,
+        transfer_type=PreparedTransfer.TYPE_DIRECT,
     )
     db.session.add(transfer)
+    return transfer
 
 
 def coordinator_commit_prepared_transfer(coordinator_id, debtor_id, prepared_transfer_seqnum):

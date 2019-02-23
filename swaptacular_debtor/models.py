@@ -94,7 +94,11 @@ class PreparedTransfer(DebtorModel):
         ),
     )
     amount = db.Column(db.BigInteger, nullable=False)
-    sender_locked_amount = db.Column(db.BigInteger, nullable=False)
+    sender_locked_amount = db.Column(
+        db.BigInteger,
+        nullable=False,
+        default=lambda context: context.get_current_parameters()['amount'],
+    )
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     coordinator_id = db.Column(db.Integer)
     withdrawal_request_seqnum = db.Column(db.BigInteger)
