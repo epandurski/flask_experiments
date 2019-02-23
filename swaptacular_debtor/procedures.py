@@ -62,6 +62,9 @@ def _lock_account_amount(account, amount, ignore_demurrage=False):
 @db.atomic
 def create_operator_transaction_request(operator, creditor_id, amount, deadline_ts, details={}):
     debtor_id, operator_branch_id, operator_user_id = Operator.get_pk_values(operator)
+
+    # We presume that the operator exists in the database. If not, an
+    # unhandled integrity error will be raised.
     request = OperatorTransactionRequest(
         debtor_id=debtor_id,
         creditor_id=creditor_id,
@@ -81,7 +84,10 @@ def create_operator_payment(operator_transaction_request):
     if request is None:
         raise InvalidOperatorTransactionRequest()
     sender_account = _lock_account_amount(
-        (request.debtor_id, request.creditor_id), request.amount, ignore_demurrage=False)
+        (request.debtor_id, request.creditor_id),
+        request.amount,
+        ignore_demurrage=False,
+    )
     with db.retry_on_integrity_error():
         transfer = PreparedTransfer(
             sender_account=sender_account,
