@@ -247,7 +247,7 @@ class WithdrawalRequest(WithdrawalDataMixin, DebtorModel):
 class Withdrawal(WithdrawalDataMixin, DebtorModel):
     closing_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     closing_comment = db.Column(pg.JSONB, nullable=False, default={}, comment='Notes from the creditor')
-    withdrawal_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    withdrawal_request_seqnum = db.Column(db.BigInteger, primary_key=True)
 
     @declared_attr
     def __table_args__(cls):

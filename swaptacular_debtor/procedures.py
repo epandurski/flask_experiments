@@ -88,6 +88,7 @@ def _commit_prepared_transfer(prepared_transfer, comment={}):
         db.session.add(Withdrawal(
             debtor_id=withdrawal_request.debtor_id,
             creditor_id=withdrawal_request.creditor_id,
+            withdrawal_request_seqnum=withdrawal_request.withdrawal_request_seqnum,
             amount=withdrawal_request.amount,
             operator_branch_id=withdrawal_request.operator_branch_id,
             operator_user_id=withdrawal_request.operator_user_id,

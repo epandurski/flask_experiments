@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 55612bb30efc
+Revision ID: 86895732dc4a
 Revises: 
-Create Date: 2019-02-23 16:59:27.674058
+Create Date: 2019-02-24 16:39:14.027545
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '55612bb30efc'
+revision = '86895732dc4a'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -25,6 +25,14 @@ def upgrade():
     sa.CheckConstraint('demurrage_rate >= 0'),
     sa.CheckConstraint('demurrage_rate_ceiling >= 0'),
     sa.PrimaryKeyConstraint('debtor_id')
+    )
+    op.create_table('withdrawal_signal',
+    sa.Column('debtor_id', sa.BigInteger(), nullable=False),
+    sa.Column('creditor_id', sa.BigInteger(), nullable=False),
+    sa.Column('withdrawal_request_seqnum', sa.BigInteger(), nullable=False),
+    sa.Column('operator_branch_id', sa.Integer(), nullable=False),
+    sa.Column('operator_user_id', sa.BigInteger(), nullable=False),
+    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'withdrawal_request_seqnum')
     )
     op.create_table('account',
     sa.Column('debtor_id', sa.BigInteger(), nullable=False),
@@ -72,10 +80,11 @@ def upgrade():
     sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('opening_ts', sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column('closing_ts', sa.TIMESTAMP(timezone=True), nullable=False),
-    sa.Column('withdrawal_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('closing_comment', postgresql.JSONB(astext_type=sa.Text()), nullable=False, comment='Notes from the creditor'),
+    sa.Column('withdrawal_request_seqnum', sa.BigInteger(), nullable=False),
     sa.CheckConstraint('amount > 0'),
     sa.ForeignKeyConstraint(['debtor_id', 'operator_branch_id', 'operator_user_id'], ['operator.debtor_id', 'operator.branch_id', 'operator.user_id'], ),
-    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'withdrawal_seqnum')
+    sa.PrimaryKeyConstraint('debtor_id', 'creditor_id', 'withdrawal_request_seqnum')
     )
     op.create_index('idx_withdrawal_closing_ts', 'withdrawal', ['debtor_id', 'operator_branch_id', 'closing_ts'], unique=False)
     op.create_table('withdrawal_request',
@@ -98,7 +107,7 @@ def upgrade():
     sa.Column('prepared_transfer_seqnum', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('sender_creditor_id', sa.BigInteger(), nullable=False),
     sa.Column('recipient_creditor_id', sa.BigInteger(), nullable=False),
-    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- direct transfer 3 -- third party transfer, '),
+    sa.Column('transfer_type', sa.SmallInteger(), nullable=False, comment='1 -- circular transfer, 2 -- direct transfer, 3 -- third party transfer '),
     sa.Column('amount', sa.BigInteger(), nullable=False),
     sa.Column('sender_locked_amount', sa.BigInteger(), nullable=False),
     sa.Column('prepared_at_ts', sa.TIMESTAMP(timezone=True), nullable=False),
@@ -117,7 +126,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['debtor_id', 'sender_creditor_id'], ['account.debtor_id', 'account.creditor_id'], ),
     sa.PrimaryKeyConstraint('debtor_id', 'prepared_transfer_seqnum')
     )
-    op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id'], unique=False)
+    op.create_index('idx_prepared_transfer_sender_creditor_id', 'prepared_transfer', ['debtor_id', 'sender_creditor_id', 'withdrawal_request_seqnum'], unique=True)
     # ### end Alembic commands ###
 
 
@@ -133,5 +142,6 @@ def downgrade():
     op.drop_table('coordinator')
     op.drop_table('branch')
     op.drop_table('account')
+    op.drop_table('withdrawal_signal')
     op.drop_table('debtor')
     # ### end Alembic commands ###

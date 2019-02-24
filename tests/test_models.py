@@ -98,14 +98,14 @@ def test_create_transactions(db_session):
     b1 = Branch(debtor=d1, branch_id=1)
     o1 = Operator(debtor=d1, branch=b1, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d1, branch=b1, user_id=2, alias='user 2'))
-    db_session.add(Withdrawal(debtor=d1, creditor_id=666, amount=5, operator=o1))
-    db_session.add(Withdrawal(debtor=d1, creditor_id=777, amount=50, operator=o1))
+    db_session.add(Withdrawal(debtor=d1, creditor_id=666, withdrawal_request_seqnum=1, amount=5, operator=o1))
+    db_session.add(Withdrawal(debtor=d1, creditor_id=777, withdrawal_request_seqnum=2, amount=50, operator=o1))
 
     d2 = _get_debtor()
     b2 = Branch(debtor=d2, branch_id=1)
     o2 = Operator(debtor=d2, branch=b2, user_id=1, alias='user 1')
     db_session.add(Operator(debtor=d2, branch=b2, user_id=3, alias='user 3'))
-    db_session.add(Withdrawal(debtor=d2, creditor_id=888, amount=10, operator=o2))
+    db_session.add(Withdrawal(debtor=d2, creditor_id=888, withdrawal_request_seqnum=3, amount=10, operator=o2))
 
     db_session.commit()
     assert len(d1.operator_list) == 2
