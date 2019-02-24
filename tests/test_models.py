@@ -153,6 +153,7 @@ def test_prepare_withdrawal(db_session):
         procedures.prepare_withdrawal(request)
     db_session.add(Account(debtor=debtor, creditor_id=777, balance=2000, avl_balance=2000))
     payment = procedures.prepare_withdrawal(request)
+    payment = procedures.prepare_withdrawal(request)
     assert payment.amount == 1000
 
 
