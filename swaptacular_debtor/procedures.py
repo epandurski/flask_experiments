@@ -92,6 +92,8 @@ def prepare_withdrawal(withdrawal_request):
     withdrawal_request = WithdrawalRequest.get_instance(withdrawal_request)
     if withdrawal_request is None:
         raise InvalidWithdrawalRequest()
+    if withdrawal_request.prepared_transfer:
+        return withdrawal_request.prepared_transfer
     sender_account = _lock_account_amount(
         (withdrawal_request.debtor_id, withdrawal_request.creditor_id),
         withdrawal_request.amount,
