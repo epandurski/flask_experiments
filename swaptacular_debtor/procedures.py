@@ -1,6 +1,6 @@
 from .extensions import db
 from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, WithdrawalRequest, \
-    Withdrawal, get_now_utc
+    Withdrawal, WithdrawalSignal, get_now_utc
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1
@@ -85,7 +85,7 @@ def _commit_prepared_transfer(prepared_transfer, comment={}):
         assert withdrawal_request.amount == amount
         if now > withdrawal_request.deadline_ts:
             raise InvalidPreparedTransfer()
-        db.session.add(Withdrawal(
+        withdrawal = Withdrawal(
             debtor_id=withdrawal_request.debtor_id,
             creditor_id=withdrawal_request.creditor_id,
             withdrawal_request_seqnum=withdrawal_request.withdrawal_request_seqnum,
@@ -96,8 +96,9 @@ def _commit_prepared_transfer(prepared_transfer, comment={}):
             opening_ts=withdrawal_request.opening_ts,
             closing_ts=now,
             closing_comment=comment,
-        ))
-        # TODO: send "withdrawal commited" signal?
+        )
+        db.session.add(withdrawal)
+        db.session.add(WithdrawalSignal(withdrawal=withdrawal))
         db.session.delete(withdrawal_request)
     sender_account.balance -= amount
     sender_account.avl_balance -= amount - prepared_transfer.sender_locked_amount

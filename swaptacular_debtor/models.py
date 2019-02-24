@@ -254,3 +254,29 @@ class Withdrawal(WithdrawalDataMixin, DebtorModel):
         return super().__table_args__ + (
             db.Index('idx_withdrawal_closing_ts', 'debtor_id', 'operator_branch_id', 'closing_ts'),
         )
+
+
+class WithdrawalSignal(DebtorModel):
+    debtor_id = db.Column(db.BigInteger, primary_key=True)
+    creditor_id = db.Column(db.BigInteger, primary_key=True)
+    withdrawal_request_seqnum = db.Column(db.BigInteger, primary_key=True)
+    __table_args__ = (
+        db.ForeignKeyConstraint(
+            [
+                'debtor_id',
+                'creditor_id',
+                'withdrawal_request_seqnum',
+            ],
+            [
+                'withdrawal.debtor_id',
+                'withdrawal.creditor_id',
+                'withdrawal.withdrawal_request_seqnum',
+            ],
+            ondelete='CASCADE',
+        ),
+    )
+
+    withdrawal = db.relationship('Withdrawal')
+
+    def send_signalbus_message(self):
+        pass
