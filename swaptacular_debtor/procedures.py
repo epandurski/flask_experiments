@@ -47,19 +47,19 @@ def create_debtor(**kw):
     return debtor
 
 
-def _lock_account(account):
-    pk = Account.get_pk_values(account)
-    while True:
-        account = Account.lock_instance(pk)
-        if account:
-            return account
+def _get_account(account):
+    instance = Account.get_instance(account)
+    if instance is None:
+        debtor_id, creditor_id = Account.get_pk_values(account)
+        instance = Account(debtor_id=debtor_id, creditor_id=creditor_id)
         with db.retry_on_integrity_error():
-            db.session.add(Account(debtor_id=pk[0], creditor_id=pk[1]))
+            db.session.add(instance)
+    return instance
 
 
 def _lock_account_amount(account, amount, ignore_demurrage=False):
     assert amount > 0
-    account = _lock_account(account)
+    account = _get_account(account)
     avl_balance = account.avl_balance + (account.demurrage if ignore_demurrage else 0)
     if avl_balance < amount:
         raise InsufficientFunds(avl_balance)

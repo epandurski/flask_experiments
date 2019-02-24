@@ -172,12 +172,12 @@ def test_prepare_direct_transfer(db_session):
 
 
 @db.atomic
-def test_lock_account(db_session):
+def test_get_account(db_session):
     debtor = procedures.create_debtor(user_id=666)
-    account = procedures._lock_account((debtor.debtor_id, 777))
+    account = procedures._get_account((debtor.debtor_id, 777))
     assert account
     assert account.balance == 0
-    assert procedures._lock_account((debtor.debtor_id, 777))
+    assert procedures._get_account((debtor.debtor_id, 777))
     account.balance = 10
-    a = procedures._lock_account(account)
+    a = procedures._get_account(account)
     assert a.balance == 10
