@@ -17,6 +17,10 @@ class InvalidWithdrawalRequest(Exception):
     """The specified withdrawal does not exist."""
 
 
+class InvalidPreparedTransfer(Exception):
+    """The specified prepared transfer does not exist."""
+
+
 @db.atomic
 def create_debtor(**kw):
     admin_user_id = kw.pop('user_id')
@@ -66,6 +70,41 @@ def _lock_account_amount(account, amount, ignore_demurrage=False):
     account.avl_balance -= amount
     return account
 
+
+def _commit_prepared_transfer(prepared_transfer, comment={}):
+    prepared_transfer = PreparedTransfer.get_instance(prepared_transfer)
+    if prepared_transfer is None:
+        raise InvalidPreparedTransfer()
+    now = get_now_utc()
+    amount = prepared_transfer.amount
+    sender_account = prepared_transfer.sender_account
+    recipient_account = _get_account((prepared_transfer.debtor_id, prepared_transfer.recipient_creditor_id))
+    withdrawal_request = prepared_transfer.withdrawal_request
+    if withdrawal_request:
+        assert prepared_transfer.transfer_type == PreparedTransfer.TYPE_DIRECT
+        assert withdrawal_request.amount == amount
+        if now > withdrawal_request.deadline_ts:
+            raise InvalidPreparedTransfer()
+        db.session.add(Withdrawal(
+            debtor_id=withdrawal_request.debtor_id,
+            creditor_id=withdrawal_request.creditor_id,
+            amount=withdrawal_request.amount,
+            operator_branch_id=withdrawal_request.operator_branch_id,
+            operator_user_id=withdrawal_request.operator_user_id,
+            details=withdrawal_request.details,
+            opening_ts=withdrawal_request.opening_ts,
+            closing_ts=now,
+            closing_comment=comment,
+        ))
+        # TODO: send "withdrawal commited" signal?
+        db.session.delete(withdrawal_request)
+    sender_account.balance -= amount
+    sender_account.avl_balance -= amount - prepared_transfer.sender_locked_amount
+    sender_account.last_transfer_ts = now
+    recipient_account.balance += amount
+    recipient_account.avl_balance += amount
+    recipient_account.last_transfer_ts = now
+    db.session.delete(prepared_transfer)
 
 
 @db.atomic
@@ -123,6 +162,11 @@ def prepare_direct_transfer(sender_account, recipient_creditor_id, amount):
     )
     db.session.add(transfer)
     return transfer
+
+
+@db.atomic
+def commit_creditor_prepared_transfer(prepared_withdrawal, comment={}):
+    _commit_prepared_transfer(prepared_withdrawal, comment)
 
 
 def coordinator_commit_prepared_transfer(coordinator_id, debtor_id, prepared_transfer_seqnum):
