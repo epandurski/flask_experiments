@@ -187,3 +187,20 @@ def test_get_account(db_session):
     account.balance = 10
     a = procedures._get_account(account)
     assert a.balance == 10
+
+
+def test_cancel_prepared_transfer(db_session):
+    debtor = procedures.create_debtor(user_id=666)
+    debtor = Debtor.query.filter_by(debtor_id=debtor.debtor_id).one()
+    account = Account(debtor=debtor, creditor_id=777, balance=3000, avl_balance=3000)
+    db_session.add(account)
+    transfer = procedures.prepare_direct_transfer(account, recipient_creditor_id=888, amount=500)
+    a = Account.query.filter_by(debtor_id=debtor.debtor_id, creditor_id=777).one()
+    assert a.balance == 3000
+    assert a.avl_balance == 2500
+    procedures.cancel_creditor_prepared_transfer(transfer)
+    a = Account.query.filter_by(debtor_id=debtor.debtor_id, creditor_id=777).one()
+    assert a.balance == 3000
+    assert a.avl_balance == 3000
+    with pytest.raises(procedures.InvalidPreparedTransfer):
+        procedures.cancel_creditor_prepared_transfer(transfer)

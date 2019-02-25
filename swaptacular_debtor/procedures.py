@@ -109,6 +109,15 @@ def _commit_prepared_transfer(prepared_transfer, comment={}):
     db.session.delete(prepared_transfer)
 
 
+def _cancel_prepared_transfer(prepared_transfer):
+    prepared_transfer = PreparedTransfer.get_instance(prepared_transfer)
+    if prepared_transfer is None:
+        raise InvalidPreparedTransfer()
+    sender_account = prepared_transfer.sender_account
+    sender_account.avl_balance += prepared_transfer.sender_locked_amount
+    db.session.delete(prepared_transfer)
+
+
 @db.atomic
 def create_withdrawal_request(operator, creditor_id, amount, deadline_ts, details={}):
     debtor_id, operator_branch_id, operator_user_id = Operator.get_pk_values(operator)
@@ -167,8 +176,13 @@ def prepare_direct_transfer(sender_account, recipient_creditor_id, amount):
 
 
 @db.atomic
-def commit_creditor_prepared_transfer(prepared_withdrawal, comment={}):
-    _commit_prepared_transfer(prepared_withdrawal, comment)
+def commit_creditor_prepared_transfer(prepared_transfer, comment={}):
+    _commit_prepared_transfer(prepared_transfer, comment)
+
+
+@db.atomic
+def cancel_creditor_prepared_transfer(prepared_transfer):
+    _cancel_prepared_transfer(prepared_transfer)
 
 
 def coordinator_commit_prepared_transfer(coordinator_id, debtor_id, prepared_transfer_seqnum):
