@@ -18,6 +18,7 @@ class Configuration(metaclass=MetaFlaskEnv):
     SQLALCHEMY_MAX_OVERFLOW = None
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
+    DRAMATIQ_BROKER_URL = ''
 
 
 def create_app(config_dict={}):
@@ -26,4 +27,5 @@ def create_app(config_dict={}):
     app.config.from_mapping(config_dict)
     extensions.init_app(app)
     from . import procedures  # TODO: Use 'app.register_blueprint(bp, url_prefix='/bp')' instead.
+    from . import tasks  # noqa: F401
     return app

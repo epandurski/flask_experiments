@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_signalbus import SignalBusMixin
 from flask_signalbus.atomic import AtomicProceduresMixin
 from flask_migrate import Migrate
+from .flask_dramatiq import RabbitmqBroker
 
 
 warnings.filterwarnings(
@@ -19,8 +20,10 @@ class CustomAlchemy(AtomicProceduresMixin, SignalBusMixin, SQLAlchemy):
 
 db = CustomAlchemy()
 migrate = Migrate()
+broker = RabbitmqBroker()
 
 
 def init_app(app):
     db.init_app(app)
     migrate.init_app(app, db)
+    broker.init_app(app)

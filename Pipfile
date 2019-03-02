@@ -15,6 +15,7 @@ flask = "*"
 flask-migrate = "*"
 "psycopg2-binary" = "*"
 flask-env = "*"
+dramatiq = {version = "*", extras = ["rabbitmq", "watch"]}
 
 [requires]
 python_version = "3.7"
