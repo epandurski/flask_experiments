@@ -1,7 +1,7 @@
 import threading
-import dramatiq
 import importlib
 import functools
+import dramatiq
 from dramatiq.brokers import stub
 
 
