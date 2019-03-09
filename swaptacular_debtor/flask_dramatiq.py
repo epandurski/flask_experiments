@@ -88,6 +88,7 @@ class _LazyBrokerMixin:
         self.__broker_url = None
         self.__broker = None
         self.__stub = stub.StubBroker(middleware=options.get('middleware'))
+        self.__app = None
         if app is not None:
             self.init_app(app)
 
@@ -97,12 +98,13 @@ class _LazyBrokerMixin:
             self.__stub.close()
             self.__stub = None
             broker = self.__broker_factory(url=broker_url, **self.__options)
-            broker.add_middleware(AppContextMiddleware(app))  # TODO: detect multiple apps?
+            broker.add_middleware(AppContextMiddleware(app))
             for actor in self.__unregistered_lazy_actors:
                 actor.register(broker=broker)
             self.__unregistered_lazy_actors.clear()
             self.__broker_url = broker_url
             self.__broker = broker
+            self.__app = app
             if self.__config_prefix == 'DRAMATIQ_BROKER':
                 dramatiq.set_broker(self)
         if broker_url != self.__broker_url:
@@ -117,6 +119,8 @@ class _LazyBrokerMixin:
                     old_url=self.__broker_url,
                 )
             )
+        if app is not self.__app:
+            broker.add_middleware(MultipleAppsWarningMiddleware())
         if not hasattr(app, 'extensions'):
             app.extensions = {}
         app.extensions[self.__config_prefix.lower()] = self
@@ -183,6 +187,14 @@ class AppContextMiddleware(dramatiq.Middleware):
             pass
 
     after_skip_message = after_process_message
+
+
+class MultipleAppsWarningMiddleware(dramatiq.Middleware):
+    def after_process_boot(self, broker):
+        broker.logger.warning(
+            "%s is used by more than one flask application. "
+            "Actor's application context may be set incorrectly." % broker
+        )
 
 
 RabbitmqBroker = _create_broker(
