@@ -27,7 +27,7 @@ class _LazyActor(dramatiq.Actor):
     """Delegates attribute access to a lazily created actor instance."""
 
     def __init__(self, fn, **kw):
-        kw.pop('broker')
+        kw.pop('broker')._unregistered_lazy_actors.append(self)
         self.__fn = fn
         self.__kw = kw
         self.__actor = None
@@ -84,10 +84,10 @@ class _LazyBrokerMixin:
         self.__registered_config_prefixes.add(config_prefix)
         self.__config_prefix = config_prefix
         self.__options = options
-        self.__unregistered_lazy_actors = []
         self.__broker_url = None
         self.__broker = None
         self.__stub = stub.StubBroker(middleware=options.get('middleware'))
+        self.__stub._unregistered_lazy_actors = []
         self.__app = None
         if app is not None:
             self.init_app(app)
@@ -95,13 +95,12 @@ class _LazyBrokerMixin:
     def init_app(self, app):
         broker_url = self.__read_url_from_config(app)
         if self.__stub:
-            self.__stub.close()
-            self.__stub = None
             broker = self.__broker_factory(url=broker_url, **self.__options)
             broker.add_middleware(AppContextMiddleware(app))
-            for actor in self.__unregistered_lazy_actors:
+            for actor in self.__stub._unregistered_lazy_actors:
                 actor.register(broker=broker)
-            self.__unregistered_lazy_actors.clear()
+            self.__stub.close()
+            self.__stub = None
             self.__broker_url = broker_url
             self.__broker = broker
             self.__app = app
@@ -133,9 +132,7 @@ class _LazyBrokerMixin:
         def decorator(fn):
             if self.__broker:
                 return dramatiq.actor(broker=self.__broker, **kwargs)(fn)
-            lazy_actor = dramatiq.actor(actor_class=_LazyActor, broker=self.__stub, **kwargs)(fn)
-            self.__unregistered_lazy_actors.append(lazy_actor)
-            return lazy_actor
+            return dramatiq.actor(actor_class=_LazyActor, broker=self.__stub, **kwargs)(fn)
 
         if fn is None:
             return decorator
