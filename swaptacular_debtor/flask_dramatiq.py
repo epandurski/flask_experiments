@@ -152,7 +152,6 @@ class _LazyBrokerMixin:
             return self.__broker
         raise RuntimeError('The init_app() method must be called on brokers before use.')
 
-    # Delegate attribute access to the underlying broker instance.
     def __getattr__(self, name):
         return getattr(self.__get_broker(), name)
 
