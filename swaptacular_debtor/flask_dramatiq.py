@@ -17,13 +17,15 @@ def _create_broker(module_name, class_name, default_url):
             __init__=functools.partial(_raise_error, e),
         ))
     class_ = getattr(module, class_name)
-    return type(class_name, (_Dramatiq, class_), dict(
-        _broker_default_url=default_url,
-        _broker_factory=class_,
+    return type(class_name, (_LazyBrokerMixin, class_), dict(
+        _LazyBrokerMixin__broker_default_url=default_url,
+        _LazyBrokerMixin__broker_factory=class_,
     ))
 
 
 class _LazyActor(dramatiq.Actor):
+    """Delegates attribute access to a lazily created actor instance."""
+
     def __init__(self, fn, **kw):
         kw.pop('broker')
         self.__fn = fn
@@ -53,7 +55,6 @@ class _LazyActor(dramatiq.Actor):
             return self.__actor
         raise RuntimeError('The init_app() method must be called on brokers before use.')
 
-    # Delegate attribute access to the underlying actor instance.
     def __getattr__(self, name):
         return getattr(self.__get_actor(), name)
 
@@ -68,7 +69,9 @@ class _LazyActor(dramatiq.Actor):
         return delattr(self.__get_actor(), name)
 
 
-class _Dramatiq:
+class _LazyBrokerMixin:
+    """Delegates attribute access to a lazily created broker instance."""
+
     __registered_config_prefixes = set()
 
     def __init__(self, app=None, config_prefix='DRAMATIQ_BROKER', **options):
@@ -93,7 +96,7 @@ class _Dramatiq:
         if self.__stub:
             self.__stub.close()
             self.__stub = None
-            broker = self._broker_factory(url=broker_url, **self.__options)
+            broker = self.__broker_factory(url=broker_url, **self.__options)
             broker.add_middleware(AppContextMiddleware(app))  # TODO: detect multiple apps?
             for actor in self.__unregistered_lazy_actors:
                 actor.register(broker=broker)
@@ -137,7 +140,7 @@ class _Dramatiq:
     def __read_url_from_config(self, app):
         return (
             app.config.get('{0}_URL'.format(self.__config_prefix))
-            or self._broker_default_url
+            or self.__broker_default_url
         )
 
     def __get_broker(self):
@@ -150,12 +153,12 @@ class _Dramatiq:
         return getattr(self.__get_broker(), name)
 
     def __setattr__(self, name, value):
-        if name.startswith('_Dramatiq__'):
+        if name.startswith('_LazyBrokerMixin__'):
             return object.__setattr__(self, name, value)
         return setattr(self.__get_broker(), name, value)
 
     def __delattr__(self, name):
-        if name.startswith('_Dramatiq__'):
+        if name.startswith('_LazyBrokerMixin__'):
             return object.__delattr__(self, name)
         return delattr(self.__get_broker(), name)
 
