@@ -23,58 +23,53 @@ def _create_broker(module_name, class_name, default_url):
     ))
 
 
-class _LazyActor(dramatiq.Actor):
-    """Delegates attribute access to a lazily created actor instance."""
+class _ProxiedInstanceMixin:
+    """Delegates attribute access to a lazily created instance.
 
-    def __init__(self, fn, **kw):
-        kw.pop('broker')._unregistered_lazy_actors.append(self)
-        self.__fn = fn
-        self.__kw = kw
-        self.__actor = None
+    The lazily created instance is held in `self._proxied_instance`.
+    To avoid infinite recursion, the `clear_proxied_instance()` method
+    should be the first thing called in the constructor. Setting
+    `self._proxied_instance` to anything different than `None`
+    prevents any further attribute assignments on `self` (which will
+    go to the proxied instance instead).
 
-    def register(self, broker):
-        self.__actor = dramatiq.Actor(self.__fn, broker=broker, **self.__kw)
+    """
 
-    def __call__(self, *args, **kwargs):
-        if self.__actor:
-            return self.__actor(*args, **kwargs)
-        return self.__fn(*args, **kwargs)
-
-    def __repr__(self):
-        if self.__actor:
-            return repr(self.__actor)
-        return object.__repr__(self)
+    def clear_proxied_instance(self):
+        object.__setattr__(self, '_proxied_instance', None)
 
     def __str__(self):
-        if self.__actor:
-            return str(self.__actor)
-        return object.__str__(self)
+        if self._proxied_instance is None:
+            return object.__str__(self)
+        return str(self._proxied_instance)
 
-    def __get_actor(self):
-        if self.__actor:
-            return self.__actor
-        raise RuntimeError('The init_app() method must be called on brokers before use.')
+    def __repr__(self):
+        if self._proxied_instance:
+            return repr(self._proxied_instance)
+        return object.__repr__(self)
 
     def __getattr__(self, name):
-        return getattr(self.__get_actor(), name)
+        if self._proxied_instance is None:
+            raise RuntimeError('The init_app() method must be called on brokers before use.')
+        return getattr(self._proxied_instance, name)
 
     def __setattr__(self, name, value):
-        if name.startswith('_LazyActor__'):
+        if self._proxied_instance is None:
             return object.__setattr__(self, name, value)
-        return setattr(self.__get_actor(), name, value)
+        return setattr(self._proxied_instance, name, value)
 
     def __delattr__(self, name):
-        if name.startswith('_LazyActor__'):
+        if self._proxied_instance is None:
             return object.__delattr__(self, name)
-        return delattr(self.__get_actor(), name)
+        return delattr(self._proxied_instance, name)
 
 
-class _LazyBrokerMixin:
-    """Delegates attribute access to a lazily created broker instance."""
-
+class _LazyBrokerMixin(_ProxiedInstanceMixin):
     __registered_config_prefixes = set()
 
     def __init__(self, app=None, config_prefix='DRAMATIQ_BROKER', **options):
+        self.clear_proxied_instance()
+        self._unregistered_lazy_actors = []
         if config_prefix in self.__registered_config_prefixes:
             raise RuntimeError(
                 'Can not create a second broker with config prefix "{}". '
@@ -85,27 +80,26 @@ class _LazyBrokerMixin:
         self.__config_prefix = config_prefix
         self.__options = options
         self.__broker_url = None
-        self.__broker = None
-        self.__stub = stub.StubBroker(middleware=options.get('middleware'))
-        self.__stub._unregistered_lazy_actors = []
         self.__app = None
+        self.__stub = stub.StubBroker(middleware=options.get('middleware'))
+        if config_prefix == 'DRAMATIQ_BROKER':
+            dramatiq.set_broker(self)
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         broker_url = self.__read_url_from_config(app)
         if self.__stub:
-            broker = self.__broker_factory(url=broker_url, **self.__options)
-            broker.add_middleware(AppContextMiddleware(app))
-            for actor in self.__stub._unregistered_lazy_actors:
-                actor.register(broker=broker)
             self.__stub.close()
             self.__stub = None
+            broker = self.__broker_factory(url=broker_url, **self.__options)
+            broker.add_middleware(AppContextMiddleware(app))
+            for actor in self._unregistered_lazy_actors:
+                actor.register(broker=broker)
+            self._unregistered_lazy_actors = None
             self.__broker_url = broker_url
-            self.__broker = broker
             self.__app = app
-            if self.__config_prefix == 'DRAMATIQ_BROKER':
-                dramatiq.set_broker(self)
+            self._proxied_instance = broker  # `self` is sealed from now on.
         if broker_url != self.__broker_url:
             raise RuntimeError(
                 '{app} tried to start a broker with '
@@ -124,19 +118,24 @@ class _LazyBrokerMixin:
             app.extensions = {}
         app.extensions[self.__config_prefix.lower()] = self
 
-    def actor(self, fn=None, **kwargs):
-        for kw in ['broker', 'actor_class']:
-            if kw in kwargs:
-                raise TypeError("actor() got an unexpected keyword argument '{}'".format(kw))
+    def actor(self, fn=None, **kw):
+        for kwarg in ['broker', 'actor_class']:
+            if kwarg in kw:
+                raise TypeError("actor() got an unexpected keyword argument '{}'".format(kwarg))
 
-        def decorator(fn):
-            if self.__broker:
-                return dramatiq.actor(broker=self.__broker, **kwargs)(fn)
-            return dramatiq.actor(actor_class=_LazyActor, broker=self.__stub, **kwargs)(fn)
+        decorator = dramatiq.actor(
+            actor_class=dramatiq.Actor if self._proxied_instance else LazyActor,
+            broker=self,
+            **kw,
+        )
 
         if fn is None:
             return decorator
         return decorator(fn)
+
+    @property
+    def actor_options(self):
+        return (self._proxied_instance or self.__stub).actor_options
 
     def __read_url_from_config(self, app):
         return (
@@ -144,23 +143,24 @@ class _LazyBrokerMixin:
             or self.__broker_default_url
         )
 
-    def __get_broker(self):
-        if self.__broker:
-            return self.__broker
-        raise RuntimeError('The init_app() method must be called on brokers before use.')
 
-    def __getattr__(self, name):
-        return getattr(self.__get_broker(), name)
+class LazyActor(_ProxiedInstanceMixin, dramatiq.Actor):
+    def __init__(self, fn, *, broker, **kw):
+        self.clear_proxied_instance()
+        self.__fn = fn
+        self.__kw = kw
+        if broker._unregistered_lazy_actors is None:
+            self.register(broker)
+        else:
+            broker._unregistered_lazy_actors.append(self)
 
-    def __setattr__(self, name, value):
-        if name.startswith('_LazyBrokerMixin__'):
-            return object.__setattr__(self, name, value)
-        return setattr(self.__get_broker(), name, value)
+    def register(self, broker):
+        self._proxied_instance = dramatiq.Actor(self.__fn, broker=broker, **self.__kw)
 
-    def __delattr__(self, name):
-        if name.startswith('_LazyBrokerMixin__'):
-            return object.__delattr__(self, name)
-        return delattr(self.__get_broker(), name)
+    def __call__(self, *args, **kwargs):
+        if self._proxied_instance:
+            return self._proxied_instance(*args, **kwargs)
+        return self.__fn(*args, **kwargs)
 
 
 class AppContextMiddleware(dramatiq.Middleware):
