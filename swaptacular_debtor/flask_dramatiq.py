@@ -9,7 +9,7 @@ def _raise_error(e, *args, **kwargs):
     raise e
 
 
-def _create_broker(module_name, class_name, default_url):
+def _create_broker(module_name, class_name, default_url='', broker_factory=None):
     try:
         module = importlib.import_module(module_name)
     except ImportError as e:
@@ -19,7 +19,7 @@ def _create_broker(module_name, class_name, default_url):
     class_ = getattr(module, class_name)
     return type(class_name, (_LazyBrokerMixin, class_), dict(
         _LazyBrokerMixin__broker_default_url=default_url,
-        _LazyBrokerMixin__broker_factory=class_,
+        _LazyBrokerMixin__broker_factory=staticmethod(broker_factory) if broker_factory else class_,
     ))
 
 
@@ -88,11 +88,13 @@ class _LazyBrokerMixin(_ProxiedInstanceMixin):
             self.init_app(app)
 
     def init_app(self, app):
-        broker_url = self.__read_url_from_config(app)
+        options = {'url': self.__read_url_from_config(app)}
+        options.update(self.__options)
+        broker_url = options['url']
         if self.__stub:
             self.__stub.close()
             self.__stub = None
-            broker = self.__broker_factory(url=broker_url, **self.__options)
+            broker = self.__broker_factory(**options)
             broker.add_middleware(AppContextMiddleware(app))
             for actor in self._unregistered_lazy_actors:
                 actor.register(broker=broker)
@@ -204,4 +206,11 @@ RedisBroker = _create_broker(
     module_name='dramatiq.brokers.redis',
     class_name='RedisBroker',
     default_url='redis://127.0.0.1:6379/0',
+)
+
+
+StubBroker = _create_broker(
+    module_name='dramatiq.brokers.stub',
+    class_name='StubBroker',
+    broker_factory=lambda url, **kw: stub.StubBroker(**kw),
 )
