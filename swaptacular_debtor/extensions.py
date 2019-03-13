@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_signalbus import SignalBusMixin
 from flask_signalbus.atomic import AtomicProceduresMixin
 from flask_migrate import Migrate
-from .flask_dramatiq import RabbitmqBroker
+from flask_melodramatiq import RabbitmqBroker
 
 
 warnings.filterwarnings(
@@ -27,3 +27,7 @@ def init_app(app):
     db.init_app(app)
     migrate.init_app(app, db)
     broker.init_app(app)
+
+
+from . import models  # noqa
+from . import tasks  # noqa

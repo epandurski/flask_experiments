@@ -8,14 +8,15 @@ python-dotenv = "*"
 pytest = "*"
 pytest-pudb = "*"
 pytest-mock = "*"
-flask-signalbus = {path = "/home/evgeni/src/flask_signalbus", editable = true}
+flask-signalbus = {path = "/home/evgeni/src/flask_signalbus",editable = true}
+flask-melodramatiq = {path = "/home/evgeni/src/flask_melodramatiq",editable = true}
 
 [packages]
 flask = "*"
 flask-migrate = "*"
 "psycopg2-binary" = "*"
 flask-env = "*"
-dramatiq = {version = "*", extras = ["rabbitmq", "watch"]}
+dramatiq = {version = "*",extras = ["rabbitmq", "watch"]}
 
 [requires]
 python_version = "3.7"
