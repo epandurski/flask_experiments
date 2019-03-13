@@ -125,12 +125,7 @@ class _LazyBrokerMixin(_ProxiedInstanceMixin):
             if kwarg in kw:
                 raise TypeError("actor() got an unexpected keyword argument '{}'".format(kwarg))
 
-        decorator = dramatiq.actor(
-            actor_class=dramatiq.Actor if self._proxied_instance else LazyActor,
-            broker=self,
-            **kw,
-        )
-
+        decorator = dramatiq.actor(actor_class=LazyActor, broker=self, **kw)
         if fn is None:
             return decorator
         return decorator(fn)
