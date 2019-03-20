@@ -3,8 +3,7 @@ import pytest
 import datetime
 from sqlalchemy import inspect
 from flask_signalbus.utils import DBSerializationError
-from swaptacular_debtor.extensions import db
-from swaptacular_debtor.models import Debtor, Account, Branch, Operator, Withdrawal, \
+from swaptacular_debtor.models import db, Debtor, Account, Branch, Operator, Withdrawal, \
     WithdrawalRequest, PreparedTransfer
 
 

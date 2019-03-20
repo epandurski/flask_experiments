@@ -1,6 +1,5 @@
-from .extensions import db
-from .models import Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, WithdrawalRequest, \
-    Withdrawal, WithdrawalSignal, get_now_utc
+from .models import db, Debtor, Account, Coordinator, Branch, Operator, PreparedTransfer, \
+    WithdrawalRequest, Withdrawal, WithdrawalSignal, get_now_utc
 
 ROOT_CREDITOR_ID = -1
 DEFAULT_COORINATOR_ID = 1

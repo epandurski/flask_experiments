@@ -1,7 +1,6 @@
 import pytest
 import datetime
-from swaptacular_debtor.extensions import db
-from swaptacular_debtor.models import Debtor, Account, Withdrawal, WithdrawalRequest
+from swaptacular_debtor.models import db, Debtor, Account, Withdrawal, WithdrawalRequest
 from swaptacular_debtor import procedures
 
 

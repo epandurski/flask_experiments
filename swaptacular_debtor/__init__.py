@@ -1,11 +1,8 @@
 import logging
+from flask_env import MetaFlaskEnv
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-from flask import Flask  # noqa: E402
-from flask_env import MetaFlaskEnv  # noqa: E402
-from . import extensions  # noqa: E402
 
 
 class Configuration(metaclass=MetaFlaskEnv):
@@ -18,12 +15,18 @@ class Configuration(metaclass=MetaFlaskEnv):
     SQLALCHEMY_MAX_OVERFLOW = None
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
-    DRAMATIQ_BROKER_URL = ''
+    DRAMATIQ_BROKER_CLASS = 'StubBroker'
 
 
 def create_app(config_dict={}):
+    from flask import Flask
+    from .tasks import broker
+    from .models import db, migrate
+
     app = Flask(__name__)
     app.config.from_object(Configuration)
     app.config.from_mapping(config_dict)
-    extensions.init_app(app)
+    db.init_app(app)
+    migrate.init_app(app, db)
+    broker.init_app(app)
     return app

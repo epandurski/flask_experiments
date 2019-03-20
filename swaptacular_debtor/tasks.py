@@ -1,16 +1,18 @@
-from .extensions import broker
-from flask_melodramatiq import LazyActor
 import dramatiq
+from flask_melodramatiq import Broker
+
+broker = Broker()
+dramatiq.set_broker(broker)
 
 
-@broker.actor
+@dramatiq.actor
 def process_job(user_id):
     print('*******************************')
     print('* Performing the process job. *')
     print('*******************************')
 
 
-@dramatiq.actor(actor_class=LazyActor)
+@dramatiq.actor
 def test_job():
     print('****************************')
     print('* Performing the test job. *')

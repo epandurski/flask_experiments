@@ -2,10 +2,30 @@ import os
 import struct
 import datetime
 import math
+import warnings
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, or_, null
-from .extensions import db
+from sqlalchemy.exc import SAWarning
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_signalbus import SignalBusMixin
+from flask_signalbus.atomic import AtomicProceduresMixin
+
+warnings.filterwarnings(
+    'ignore',
+    r"relationship '\w+\.\w+' will copy column \w+\.(debtor_id|creditor_id)",
+    SAWarning,
+)
+
+
+class CustomAlchemy(AtomicProceduresMixin, SignalBusMixin, SQLAlchemy):
+    pass
+
+
+db = CustomAlchemy()
+migrate = Migrate()
+
 
 BEGINNING_OF_TIME = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=datetime.timezone.utc)
 

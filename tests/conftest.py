@@ -3,9 +3,9 @@ import sqlalchemy
 import flask_migrate
 from unittest import mock
 from swaptacular_debtor import create_app
-from swaptacular_debtor.extensions import db
+from swaptacular_debtor.models import db
 
-DB_SESSION = 'swaptacular_debtor.extensions.db.session'
+DB_SESSION = 'swaptacular_debtor.models.db.session'
 
 
 def _restart_savepoint(session, transaction):
