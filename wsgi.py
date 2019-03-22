@@ -4,6 +4,8 @@
 # Change the following lines to import/create your flask application! #
 #######################################################################
 from swaptacular_debtor import create_app
+from swaptacular_debtor.tasks import broker  # noqa
+
 
 app = create_app()
 
