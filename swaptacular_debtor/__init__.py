@@ -15,7 +15,8 @@ class Configuration(metaclass=MetaFlaskEnv):
     SQLALCHEMY_MAX_OVERFLOW = None
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
-    DRAMATIQ_BROKER_CLASS = 'StubBroker'
+    SIGNALBUS_RABBITMQ_EXCHANGE = ''
+    # DRAMATIQ_BROKER_CLASS = 'StubBroker'
 
 
 def create_app(config_dict={}):

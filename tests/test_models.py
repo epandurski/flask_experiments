@@ -1,10 +1,9 @@
 import math
 import pytest
-import datetime
 from sqlalchemy import inspect
 from flask_signalbus.utils import DBSerializationError
 from swaptacular_debtor.models import db, Debtor, Account, Branch, Operator, Withdrawal, \
-    WithdrawalRequest, PreparedTransfer
+    PreparedTransfer, TransactionSignal
 
 
 def _get_debtor():
@@ -117,3 +116,18 @@ def test_create_transactions(db_session):
     assert inspect(t).deleted
     db_session.commit()
     assert len(Operator.query.filter_by(debtor=d1).order_by('user_id').first().withdrawal_list) == 1
+
+
+@db.atomic
+def test_send_signalbus_message(db_session):
+    t = TransactionSignal(
+        debtor_id=1,
+        prepared_transfer_seqnum=1,
+        sender_creditor_id=1,
+        recipient_creditor_id=2,
+        amount=100,
+    )
+    db_session.add(t)
+    db_session.flush()
+    db_session.commit()
+    t.send_signalbus_message()

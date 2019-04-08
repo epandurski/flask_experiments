@@ -3,14 +3,17 @@ import struct
 import datetime
 import math
 import warnings
+import dramatiq
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.sql.expression import and_, or_, null
 from sqlalchemy.exc import SAWarning
+from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_signalbus import SignalBusMixin
 from flask_signalbus.atomic import AtomicProceduresMixin
+from . import tasks
 
 warnings.filterwarnings(
     'ignore',
@@ -61,6 +64,24 @@ class DebtorModel(db.Model):
             primaryjoin=Debtor.debtor_id == db.foreign(cls.debtor_id),
             backref=db.backref(cls.__tablename__ + '_list'),
         )
+
+
+class SignalModel(db.Model):
+    __abstract__ = True
+
+    def send_signalbus_message(self):
+        model = type(self)
+        tablename = model.__tablename__
+        data = model.__marshmallow_schema__.dump(self)
+        exchange_name = current_app.config.get('SIGNALBUS_RABBITMQ_EXCHANGE', '')
+        message = dramatiq.Message(
+            queue_name=None,
+            actor_name=f'{exchange_name}_{tablename}' if exchange_name else tablename,
+            args=(),
+            kwargs=data,
+            options={},
+        )
+        tasks.broker.publish_message(message, exchange=exchange_name)
 
 
 class Account(DebtorModel):
@@ -160,6 +181,14 @@ class PreparedTransfer(DebtorModel):
     )
 
 
+class TransactionSignal(SignalModel):
+    debtor_id = db.Column(db.BigInteger, primary_key=True)
+    prepared_transfer_seqnum = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    sender_creditor_id = db.Column(db.BigInteger, nullable=False)
+    recipient_creditor_id = db.Column(db.BigInteger, nullable=False)
+    amount = db.Column(db.BigInteger, nullable=False)
+
+
 class Coordinator(DebtorModel):
     debtor_id = db.Column(db.BigInteger, db.ForeignKey('debtor.debtor_id'), primary_key=True)
     coordinator_id = db.Column(db.Integer, primary_key=True)
@@ -253,7 +282,7 @@ class Withdrawal(WithdrawalDataMixin, DebtorModel):
         )
 
 
-class WithdrawalSignal(DebtorModel):
+class WithdrawalSignal(SignalModel):
     debtor_id = db.Column(db.BigInteger, primary_key=True)
     creditor_id = db.Column(db.BigInteger, primary_key=True)
     withdrawal_request_seqnum = db.Column(db.BigInteger, primary_key=True)
@@ -274,6 +303,3 @@ class WithdrawalSignal(DebtorModel):
     )
 
     withdrawal = db.relationship('Withdrawal')
-
-    def send_signalbus_message(self):
-        pass

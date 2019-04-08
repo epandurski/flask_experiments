@@ -1,6 +1,6 @@
-from flask_melodramatiq import Broker
+from flask_melodramatiq import RabbitmqBroker
 
-broker = Broker()
+broker = RabbitmqBroker(confirm_delivery=True)
 
 
 @broker.actor
