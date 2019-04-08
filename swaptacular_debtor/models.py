@@ -121,7 +121,6 @@ class PreparedTransfer(DebtorModel):
     )
     prepared_at_ts = db.Column(db.TIMESTAMP(timezone=True), nullable=False, default=get_now_utc)
     coordinator_id = db.Column(db.Integer)
-    withdrawal_request_seqnum = db.Column(db.BigInteger)
     third_party_debtor_id = db.Column(db.BigInteger)
     third_party_amount = db.Column(db.BigInteger)
     __table_args__ = (
@@ -133,24 +132,10 @@ class PreparedTransfer(DebtorModel):
             ['debtor_id', 'coordinator_id'],
             ['coordinator.debtor_id', 'coordinator.coordinator_id'],
         ),
-        db.ForeignKeyConstraint(
-            [
-                'debtor_id',
-                'sender_creditor_id',
-                'withdrawal_request_seqnum',
-            ],
-            [
-                'withdrawal_request.debtor_id',
-                'withdrawal_request.creditor_id',
-                'withdrawal_request.withdrawal_request_seqnum',
-            ],
-        ),
         db.Index(
             'idx_prepared_transfer_sender_creditor_id',
             debtor_id,
             sender_creditor_id,
-            withdrawal_request_seqnum,
-            unique=True,
         ),
         db.CheckConstraint(amount >= 0),
         db.CheckConstraint(sender_locked_amount >= 0),
@@ -158,10 +143,6 @@ class PreparedTransfer(DebtorModel):
         db.CheckConstraint(or_(
             and_(transfer_type == TYPE_CIRCULAR, coordinator_id != null()),
             and_(transfer_type != TYPE_CIRCULAR, coordinator_id == null()),
-        )),
-        db.CheckConstraint(or_(
-            transfer_type == TYPE_DIRECT,
-            withdrawal_request_seqnum == null(),
         )),
         db.CheckConstraint(or_(
             and_(transfer_type == TYPE_THIRD_PARTY, third_party_debtor_id != null(), third_party_amount != null()),
@@ -176,10 +157,6 @@ class PreparedTransfer(DebtorModel):
     coordinator = db.relationship(
         'Coordinator',
         backref=db.backref('prepared_transfer_list'),
-    )
-    withdrawal_request = db.relationship(
-        'WithdrawalRequest',
-        backref=db.backref('prepared_transfer', uselist=False),
     )
 
 

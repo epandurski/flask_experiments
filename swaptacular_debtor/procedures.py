@@ -137,33 +137,13 @@ def create_withdrawal_request(operator, creditor_id, amount, deadline_ts, detail
 
 
 @db.atomic
-def prepare_withdrawal(withdrawal_request):
-    withdrawal_request = WithdrawalRequest.get_instance(withdrawal_request)
-    if withdrawal_request is None:
-        raise InvalidWithdrawalRequest()
-    if withdrawal_request.prepared_transfer:
-        return withdrawal_request.prepared_transfer
-    sender_account = _lock_account_amount(
-        (withdrawal_request.debtor_id, withdrawal_request.creditor_id),
-        withdrawal_request.amount,
-        ignore_demurrage=False,
-    )
-    with db.retry_on_integrity_error():
-        transfer = PreparedTransfer(
-            sender_account=sender_account,
-            recipient_creditor_id=ROOT_CREDITOR_ID,
-            amount=withdrawal_request.amount,
-            transfer_type=PreparedTransfer.TYPE_DIRECT,
-            withdrawal_request=withdrawal_request,
-        )
-    db.session.add(transfer)
-    return transfer
-
-
-@db.atomic
 def prepare_direct_transfer(sender_account, recipient_creditor_id, amount):
     assert amount > 0
-    sender_account = _lock_account_amount(sender_account, amount)
+    sender_account = _lock_account_amount(
+        sender_account,
+        amount,
+        ignore_demurrage=(recipient_creditor_id == ROOT_CREDITOR_ID),
+    )
     transfer = PreparedTransfer(
         sender_account=sender_account,
         recipient_creditor_id=recipient_creditor_id,

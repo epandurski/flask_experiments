@@ -66,27 +66,17 @@ def test_create_accounts(db_session):
 def test_create_prepared_transfer(db_session):
     d = _get_debtor()
     a = Account(debtor=d, creditor_id=666)
-    b = Branch(debtor=d, branch_id=1)
-    o = Operator(branch=b, user_id=1, alias='user 1')
-    deadline_ts = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=2)
-    otr = WithdrawalRequest(creditor_id=666, operator=o, amount=50, deadline_ts=deadline_ts)
     pt = PreparedTransfer(
         sender_account=a,
         recipient_creditor_id=777,
         transfer_type=2,
-        withdrawal_request=otr,
         amount=50,
         sender_locked_amount=50,
     )
     db_session.add(pt)
     db_session.commit()
-    assert otr.prepared_transfer is pt
-    assert otr.operator is o
-    assert otr.branch is b
-    assert pt.withdrawal_request is otr
     db_session.delete(pt)
     db_session.commit()
-    assert otr.prepared_transfer is None
 
 
 @pytest.mark.models
