@@ -69,14 +69,23 @@ class DebtorModel(db.Model):
 class SignalModel(db.Model):
     __abstract__ = True
 
+    queue_name = None
+
     def send_signalbus_message(self):
         model = type(self)
-        tablename = model.__tablename__
+        if model.queue_name is None:
+            assert not hasattr(model, 'actor_name'), \
+                'SignalModel.queue_name is not set, but SignalModel.actor_model is set'
+            exchange_name = current_app.config['RABBITMQ_EVENT_EXCHANGE']
+            actor_prefix = f'on_{exchange_name}_' if exchange_name else 'on_'
+            actor_name = actor_prefix + model.__tablename__
+        else:
+            exchange_name = ''
+            actor_name = model.actor_name
         data = model.__marshmallow_schema__.dump(self)
-        exchange_name = current_app.config.get('SIGNALBUS_RABBITMQ_EXCHANGE', '')
         message = dramatiq.Message(
-            queue_name=None,
-            actor_name=f'{exchange_name}_{tablename}' if exchange_name else tablename,
+            queue_name=model.queue_name,
+            actor_name=actor_name,
             args=(),
             kwargs=data,
             options={},

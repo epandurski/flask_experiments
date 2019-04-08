@@ -15,7 +15,7 @@ class Configuration(metaclass=MetaFlaskEnv):
     SQLALCHEMY_MAX_OVERFLOW = None
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
-    SIGNALBUS_RABBITMQ_EXCHANGE = ''
+    RABBITMQ_EVENT_EXCHANGE = ''
     # DRAMATIQ_BROKER_CLASS = 'StubBroker'
 
 
