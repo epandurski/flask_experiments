@@ -1,2 +1,2 @@
-# swaptacular_debtor
-A debtor microservice for the Swaptacular project
+# flask_experiments
+A place for experiments with Docker, Flask, SQLAlchamey
